@@ -24,7 +24,7 @@ jobs:
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
           cd kernel
-          axel https://raw.githubusercontent.com/mingmingzhichua/build/main/su.patch
+          axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/su.patch
           patch -p1 < su.patch
           curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash -s main
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
