@@ -28,6 +28,31 @@ jobs:
           patch -p1 < su.patch
           curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash -s main
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          rm -rf utils
+          git clone https://github.com/tomxi1997/lxc-docker-support-for-android.git utils
+          echo 'source "utils/Kconfig"' >> "Kconfig"
+
+        echo "CONFIG_DOCKER=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+
+        sed -i '/CONFIG_ANDROID_PARANOID_NETWORK/d' ~/kernel/arch/arm64/configs/gulch_defconfig
+        echo "# CONFIG_ANDROID_PARANOID_NETWORK is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          
+        #sed -i '/CONFIG_LOCALVERSION/d' ~/kernel/arch/arm64/configs/gulch_defconfig
+        #echo 'CONFIG_LOCALVERSION="-LXC-KernelSU-support_Pdx"' >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          
+        chmod +x ~/kernel//utils/runcpatch.sh
+        if [ -f ~/kernel/android-kernel/kernel/cgroup/cgroup.c ]; then
+            sh ~/kernel/android-kernel/utils/runcpatch.sh ~/kernel/android-kernel/kernel/cgroup/cgroup.c
+        fi
+
+        if [ -f ~/kernel/android-kernel/kernel/cgroup.c ]; then
+            sh ~/kernel/android-kernel/utils/runcpatch.sh $GITHUB_WORKSPACE/kernel_workspace/android-kernel/kernel/cgroup.c
+        fi
+
+        if [ -f ~/kernel/net/netfilter/xt_qtaguid.c ]; then
+            patch -p0 < $~/kernel/android-kernel/utils/xt_qtaguid.patch
+        fi
+       
           make ARCH=arm64 CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=../out gulch_defconfig
           make ARCH=arm64 CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip O=../out -j$(nproc --all)
           cd ~
