@@ -14,9 +14,11 @@ jobs:
       - name: build
         run: |
           cd ~
+          sudo apt update
+          sudo apt upgrade
           sudo apt install curl axel
           git clone https://github.com/yaap/kernel_oneplus_sm8150.git -b sixteen kernel --depth=1
-          git clone https://gitlab.com/kei-space/clang/r536225.git clang  --depth=1      
+          git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang  --depth=1      
           export KBUILD_BUILD_USER=mmzch
           export HOME=~/
           export CLANG_PATH=$HOME/clang/bin
