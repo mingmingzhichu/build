@@ -16,7 +16,11 @@ jobs:
           cd ~
           sudo apt install curl axel
           git clone https://github.com/yaap/kernel_oneplus_sm8150.git -b sixteen kernel --depth=1
-          git clone https://gitlab.com/kei-space/clang/r536225.git clang  --depth=1      
+          axel https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r547379.tar.gz
+          unzip tar -zxvf clang-r547379.tar.gz clang
+          cd clang 
+          ls
+          cd ..
           export KBUILD_BUILD_USER=mmzch
           export HOME=~/
           export CLANG_PATH=$HOME/clang/bin
