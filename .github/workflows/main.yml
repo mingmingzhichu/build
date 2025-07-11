@@ -18,7 +18,6 @@ jobs:
           # 确保系统是最新的
           cd ~
           sudo apt update
-          sudo apt upgrade -y
 
           # 安装必要的依赖
           sudo apt install -y curl axel git build-essential flex bison libssl-dev \
@@ -57,10 +56,7 @@ jobs:
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
 
-          # 禁用 32 位 VDSO 支持（如果不需要 32 位兼容性）
-          echo "# 禁用 32 位 VDSO" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_COMPAT_VDSO=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_ARM64_VDSO32=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+
 
           # 清理并配置内核
           make clean
