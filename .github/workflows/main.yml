@@ -15,7 +15,7 @@ jobs:
         run: |
           cd ~
           sudo apt install curl axel
-          git clone https://github.com/yaap/kernel_oneplus_sm8150.git -b fifteen kernel --depth=1
+          git clone https://github.com/yaap/kernel_oneplus_sm8150.git -b sixteen kernel --depth=1
           git clone https://gitlab.com/kei-space/clang/r522817.git clang  --depth=1      
           export KBUILD_BUILD_USER=mmzch
           export HOME=~/
