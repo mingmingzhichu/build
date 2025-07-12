@@ -14,7 +14,6 @@ jobs:
           
       - name: build
         run: |
-          #!/bin/bash
           # 确保系统是最新的
           cd ~
           sudo apt update
@@ -78,11 +77,12 @@ jobs:
               LLVM_IAS=1
 
           cd ~
+          unzip ./AnyKernel3-master.zip -d ./AnyKernel3-master
           echo "编译完成！内核镜像位于: ~/out/arch/arm64/boot/Image.gz-dtb"
-          zip -r ~/kernel.zip ~/out/arch/arm64/boot/
+          cp ~/out/arch/arm64/boot/Image.gz-dtb ./AnyKernel3-master/
           
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: kernel.zip
-          path: ~/kernel.zip
+          name: AnyKernel3-master
+          path: ~/AnyKernel3-master
