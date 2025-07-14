@@ -51,7 +51,7 @@ jobs:
           patch -p1 < su.patch
 
           # 集成 KernelSU
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
 
           # 配置内核选项
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
