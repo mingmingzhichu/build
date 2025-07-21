@@ -80,10 +80,10 @@ jobs:
 
           cd ~
           echo "编译完成！内核镜像位于: ~/out/arch/arm64/boot/Image.gz-dtb"
-          zip -u ~/AnyKernel3-master.zip ~/out/arch/arm64/boot/Image.gz-dtb
-          
+          unzip ~/AnyKernel3-master.zip ~/out/arch/arm64/boot/Image.gz-dtb -d ~/AnyKernel3-master
+          cp ~/out/arch/arm64/boot/Image.gz-dtb ~/AnyKernel3-master/
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: AnyKernel3-master.zip
-          path: ~/AnyKernel3-master.zip
+          path: ~/AnyKernel3-master/
