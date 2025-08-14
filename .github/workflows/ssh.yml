@@ -1,0 +1,16 @@
+name: debugger-action
+on:
+  workflow_dispatch:  # 手动触发（在 GitHub Actions 页面点击“Run workflow”启动）
+    branches: [ test ]  # 可选：限制仅在 test 分支触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2  # 拉取仓库代码到 Runner
+
+      - name: Setup Debug Session
+        uses: csexton/debugger-action@master
+        with:
+          timeout: 3600  # 调试会话超时时间：1小时（3600秒）
