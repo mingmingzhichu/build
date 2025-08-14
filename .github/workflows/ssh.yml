@@ -14,3 +14,8 @@ jobs:
         uses: csexton/debugger-action@master
         with:
           timeout: 3600  # 调试会话超时时间：1小时（3600秒）
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnyKernel3-master.zip
+          path: ~/AnyKernel3-master/
