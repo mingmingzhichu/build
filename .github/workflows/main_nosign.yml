@@ -91,5 +91,5 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: AnyKernel3-master.zip
+          name: AnyKernel3-master
           path: ~/AnyKernel3-master/
