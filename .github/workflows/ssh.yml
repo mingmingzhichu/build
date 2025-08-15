@@ -11,6 +11,7 @@ jobs:
 
       - name: Setup Debug Session
         uses: csexton/debugger-action@master
+        
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
