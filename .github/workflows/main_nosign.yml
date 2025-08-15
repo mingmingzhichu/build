@@ -53,17 +53,19 @@ jobs:
           # 集成 KernelSU
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
 
-          # 配置内核选项（新增关闭模块签名认证配置）
+          # 配置内核选项
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          # 关闭内核模块签名认证
+          # 开启模块支持并关闭签名认证
           echo "CONFIG_MODULES=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_MODULE_SIG=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_MODULE_SIG_ALL=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_MODULE_SIG_SHA1=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_MODULE_SIG_SELF=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
 
-
+          # 修复 LZ4 函数名不一致问题
+          sed -i 's/LZ4_armv8_decompress_safe/LZ4_arm64_decompress_safe/g' lib/lz4/lz4_decompress.c
+          sed -i 's/LZ4_armv8_decompress_safe_partial/LZ4_arm64_decompress_safe_partial/g' lib/lz4/lz4_decompress.c
 
           # 清理并配置内核
           make O=../out ARCH=arm64 gulch_defconfig
