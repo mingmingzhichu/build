@@ -22,7 +22,6 @@ index XXXXXXX..XXXXXXX 100644
 +static inline int set_memory_nx(unsigned long addr, int numpages) { return 0; }
 +static inline int set_memory_valid(unsigned long addr, int numpages, int enable) { return 0; }
 +#endif /* CONFIG_ARCH_HAS_SET_MEMORY */
- 
  #endif /* __LINUX_SET_MEMORY_H */
 diff --git a/mm/pageattr.c b/mm/pageattr.c
 index XXXXXXX..XXXXXXX 100644
@@ -88,7 +87,7 @@ index XXXXXXX..XXXXXXX 100644
  
  int set_memory_valid(unsigned long addr, int numpages, int enable)
  {
-     /* 4.14 内核无原生支持，默认返回成功 */
+     /* 4.14 kernel fallback */
      return 0;
  }
  EXPORT_SYMBOL(set_memory_valid);
@@ -104,7 +103,7 @@ index XXXXXXX..XXXXXXX 100644
  #include <asm/pgtable.h>
 +#include <linux/set_memory.h>
  
- /* Page attribute conversion helpers for ARM64 */
+ /* Page attribute conversion for ARM64 */
  pgprot_t pgprot_ro(pgprot_t prot)
  {
      return __pgprot(pgprot_val(prot) & ~PTE_WRITE);
@@ -124,11 +123,3 @@ index XXXXXXX..XXXXXXX 100644
  {
      return __pgprot(pgprot_val(prot) & ~PTE_EXEC);
  }
-diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
-index XXXXXXX..XXXXXXX 100644
---- a/arch/arm64/configs/defconfig
-+++ b/arch/arm64/configs/defconfig
-@@ -XX,XX +XX,XX @@ CONFIG_KALLSYMS=y
- CONFIG_KALLSYMS_ALL=y
-+CONFIG_ARCH_HAS_SET_MEMORY=y
- CONFIG_KPM=y
