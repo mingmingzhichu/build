@@ -1,0 +1,134 @@
+diff --git a/include/linux/set_memory.h b/include/linux/set_memory.h
+index XXXXXXX..XXXXXXX 100644
+--- a/include/linux/set_memory.h
++++ b/include/linux/set_memory.h
+@@ -1,11 +1,20 @@
+ #ifndef __LINUX_SET_MEMORY_H
+ #define __LINUX_SET_MEMORY_H
+ 
+ #include <linux/mm.h>
++#include <linux/types.h>
+ 
++#ifdef CONFIG_ARCH_HAS_SET_MEMORY
+ int set_memory_ro(unsigned long addr, int numpages);
+ int set_memory_rw(unsigned long addr, int numpages);
+ int set_memory_x(unsigned long addr, int numpages);
+ int set_memory_nx(unsigned long addr, int numpages);
++int set_memory_valid(unsigned long addr, int numpages, int enable);
++#else
++static inline int set_memory_ro(unsigned long addr, int numpages) { return 0; }
++static inline int set_memory_rw(unsigned long addr, int numpages) { return 0; }
++static inline int set_memory_x(unsigned long addr, int numpages) { return 0; }
++static inline int set_memory_nx(unsigned long addr, int numpages) { return 0; }
++static inline int set_memory_valid(unsigned long addr, int numpages, int enable) { return 0; }
++#endif /* CONFIG_ARCH_HAS_SET_MEMORY */
+ 
+ #endif /* __LINUX_SET_MEMORY_H */
+diff --git a/mm/pageattr.c b/mm/pageattr.c
+index XXXXXXX..XXXXXXX 100644
+--- a/mm/pageattr.c
++++ b/mm/pageattr.c
+@@ -XX,XX +XX,XX @@
+ #include <linux/kernel.h>
+ #include <linux/mm.h>
+ #include <linux/vmalloc.h>
++#include <linux/set_memory.h>
+ #include <asm/tlbflush.h>
+ #include <asm/page.h>
+ #include <asm/pgtable.h>
+ 
++#ifdef CONFIG_ARCH_HAS_SET_MEMORY
++
+ /* Common helper to modify page attributes */
+ static int __set_memory_attr(unsigned long addr, int numpages, pgprot_t prot)
+ {
+     unsigned long start = addr;
+     unsigned long end = addr + (numpages << PAGE_SHIFT);
+     int ret = 0;
+ 
+     while (start < end) {
+         struct page *page = virt_to_page((void *)start);
+         if (PageReserved(page)) {
+             ret = -EINVAL;
+             break;
+         }
+         if (change_page_attr(page, 1, prot)) {
+             ret = -EIO;
+             break;
+         }
+         start += PAGE_SIZE;
+     }
+     flush_tlb_all(); /* Flush TLB to apply changes */
+     return ret;
+ }
+ 
+ int set_memory_ro(unsigned long addr, int numpages)
+ {
+     return __set_memory_attr(addr, numpages, PAGE_KERNEL_RO);
+ }
+ EXPORT_SYMBOL(set_memory_ro);
+ 
+ int set_memory_rw(unsigned long addr, int numpages)
+ {
+     return __set_memory_attr(addr, numpages, PAGE_KERNEL);
+ }
+ EXPORT_SYMBOL(set_memory_rw);
+ 
+ int set_memory_x(unsigned long addr, int numpages)
+ {
+     return __set_memory_attr(addr, numpages, PAGE_KERNEL_EXEC);
+ }
+ EXPORT_SYMBOL(set_memory_x);
+ 
+ int set_memory_nx(unsigned long addr, int numpages)
+ {
+     return __set_memory_attr(addr, numpages, PAGE_KERNEL);
+ }
+ EXPORT_SYMBOL(set_memory_nx);
+ 
+ int set_memory_valid(unsigned long addr, int numpages, int enable)
+ {
+     /* 4.14 内核无原生支持，默认返回成功 */
+     return 0;
+ }
+ EXPORT_SYMBOL(set_memory_valid);
++
++#endif /* CONFIG_ARCH_HAS_SET_MEMORY */
+diff --git a/arch/arm64/mm/pageattr.c b/arch/arm64/mm/pageattr.c
+index XXXXXXX..XXXXXXX 100644
+--- a/arch/arm64/mm/pageattr.c
++++ b/arch/arm64/mm/pageattr.c
+@@ -XX,XX +XX,XX @@
+ #include <linux/mm.h>
+ #include <linux/sched.h>
+ #include <asm/pgtable.h>
++#include <linux/set_memory.h>
+ 
+ /* Page attribute conversion helpers for ARM64 */
+ pgprot_t pgprot_ro(pgprot_t prot)
+ {
+     return __pgprot(pgprot_val(prot) & ~PTE_WRITE);
+ }
+ 
+ pgprot_t pgprot_rw(pgprot_t prot)
+ {
+     return __pgprot(pgprot_val(prot) | PTE_WRITE);
+ }
+ 
+ pgprot_t pgprot_exec(pgprot_t prot)
+ {
+     return __pgprot(pgprot_val(prot) | PTE_EXEC);
+ }
+ 
+ pgprot_t pgprot_nx(pgprot_t prot)
+ {
+     return __pgprot(pgprot_val(prot) & ~PTE_EXEC);
+ }
+diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
+index XXXXXXX..XXXXXXX 100644
+--- a/arch/arm64/configs/defconfig
++++ b/arch/arm64/configs/defconfig
+@@ -XX,XX +XX,XX @@ CONFIG_KALLSYMS=y
+ CONFIG_KALLSYMS_ALL=y
++CONFIG_ARCH_HAS_SET_MEMORY=y
+ CONFIG_KPM=y
