@@ -40,6 +40,8 @@
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           # 关闭内核模块签名认证
+          echo "CONFIG_MODULES=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+
           echo "CONFIG_MODULE_SIG=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_MODULE_SIG_ALL=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_MODULE_SIG_SHA1=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
