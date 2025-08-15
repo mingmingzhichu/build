@@ -120,18 +120,6 @@ index XXXXXXX..XXXXXXX 100644
 +{
 +	return __pgprot(pgprot_val(prot) & ~PTE_EXEC);
 +}
-diff --git a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
-index XXXXXXX..XXXXXXX 100644
---- a/arch/arm64/configs/defconfig
-+++ b/arch/arm64/configs/defconfig
-@@ -500,6 +500,8 @@ CONFIG_KALLSYMS=y
- CONFIG_KALLSYMS_ALL=y
- CONFIG_PRINTK=y
- CONFIG_BUG=y
-+CONFIG_ARCH_HAS_SET_MEMORY=y
-+CONFIG_KPM=y
- CONFIG_MODULES=y
- CONFIG_MODULE_UNLOAD=y
 diff --git a/kernel/Kconfig b/kernel/Kconfig
 index XXXXXXX..XXXXXXX 100644
 --- a/kernel/Kconfig
@@ -168,7 +156,7 @@ new file mode 100644
 index 0000000..XXXXXXX
 --- /dev/null
 +++ b/kernel/kpm/kpm.c
-@@ -0,0 +1,312 @@
+@@ -0,0 +1,364 @@
 +#include <linux/init.h>
 +#include <linux/module.h>
 +#include <linux/kernel.h>
