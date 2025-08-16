@@ -14,3 +14,10 @@ index d79118c..0f6ffcb 100644
  #ifdef CONFIG_SCHED_DEBUG
  # define SCHED_WARN_ON(x)	WARN_ONCE(x, #x)
  #else
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -347,7 +347,0 @@
+-static inline struct cfs_rq *cfs_rq_of(struct sched_entity *se)
+-{
+-	return se->cfs_rq;
+-}
