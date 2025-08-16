@@ -66,6 +66,7 @@ jobs:
           echo "CONFIG_MODULE_SIG_SELF=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KALLSYMS=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KALLSYMS_ALL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "CONFIG_LTO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
 
           # 修复 LZ4 函数名不一致问题
           sed -i 's/LZ4_armv8_decompress_safe/LZ4_arm64_decompress_safe/g' lib/lz4/lz4_decompress.c
