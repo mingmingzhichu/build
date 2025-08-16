@@ -1,13 +1,16 @@
+diff --git a/sched.h b/sched.h
+index d79118c..0f6ffcb 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
-@@ -54,6 +54,12 @@
- #include "cpupri.h"
+@@ -42,7 +42,10 @@
  #include "cpudeadline.h"
  #include "cpuacct.h"
  #include "features.h"
-+
-+/* 获取 sched_entity 所在的 cfs_rq */
+-
 +static inline struct cfs_rq *cfs_rq_of(struct sched_entity *se)
 +{
 +	return se->cfs_rq;
 +}
+ #ifdef CONFIG_SCHED_DEBUG
+ # define SCHED_WARN_ON(x)	WARN_ONCE(x, #x)
+ #else
