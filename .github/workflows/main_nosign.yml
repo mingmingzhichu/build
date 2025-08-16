@@ -62,7 +62,7 @@ jobs:
           echo "CONFIG_MODULE_SIG_SELF=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KALLSYMS=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KALLSYMS_ALL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_LTO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "CONFIG_DEBUG_INFO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KPM=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_DEBUG_KERNEL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
 
