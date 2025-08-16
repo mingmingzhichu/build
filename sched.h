@@ -42,7 +42,10 @@
 #include "cpudeadline.h"
 #include "cpuacct.h"
 #include "features.h"
-
+static inline struct cfs_rq *cfs_rq_of(struct sched_entity *se)
+{
+	return se->cfs_rq;
+}
 #ifdef CONFIG_SCHED_DEBUG
 # define SCHED_WARN_ON(x)	WARN_ONCE(x, #x)
 #else
