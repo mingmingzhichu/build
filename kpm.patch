@@ -1,4 +1,4 @@
-diff --git a/sched.h b/sched.h
+diff --git a/kernel/sched/sched.h b/kernel/sched/sched.h
 index d79118c..0f6ffcb 100644
 --- a/kernel/sched/sched.h
 +++ b/kernel/sched/sched.h
@@ -14,10 +14,19 @@ index d79118c..0f6ffcb 100644
  #ifdef CONFIG_SCHED_DEBUG
  # define SCHED_WARN_ON(x)	WARN_ONCE(x, #x)
  #else
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index f2568ef..f886371 100644
 --- a/kernel/sched/fair.c
 +++ b/kernel/sched/fair.c
-@@ -347,7 +347,0 @@
+@@ -344,10 +344,7 @@ static inline struct cfs_rq *task_cfs_rq(struct task_struct *p)
+ }
+ 
+ /* runqueue on which this entity is (to be) queued */
 -static inline struct cfs_rq *cfs_rq_of(struct sched_entity *se)
 -{
 -	return se->cfs_rq;
 -}
++
+ 
+ /* runqueue "owned" by this group */
+ static inline struct cfs_rq *group_cfs_rq(struct sched_entity *grp)
