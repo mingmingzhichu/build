@@ -30,15 +30,5 @@ index f2568ef..f886371 100644
  
  /* runqueue "owned" by this group */
  static inline struct cfs_rq *group_cfs_rq(struct sched_entity *grp)
---- a/kernel/sched/debug.c
-+++ b/kernel/sched/debug.c
-@@ -22,7 +22,7 @@
- #include <linux/utsname.h>
- #include <linux/mempolicy.h>
- #include <linux/debugfs.h>
- 
--#include "sched.h"
-+#include <linux/sched/sched.h>
- 
- static DEFINE_SPINLOCK(sched_debug_lock);
+
  
