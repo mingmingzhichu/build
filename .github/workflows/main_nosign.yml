@@ -49,11 +49,6 @@ jobs:
           cd kernel
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/su.patch
           patch -p1 < su.patch
-          
-
-          # 集成 KernelSU
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
-
           # 配置内核选项
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
@@ -67,6 +62,9 @@ jobs:
           echo "CONFIG_KALLSYMS=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KALLSYMS_ALL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_LTO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+
+          # 集成 KernelSU
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
 
           # 修复 LZ4 函数名不一致问题
           sed -i 's/LZ4_armv8_decompress_safe/LZ4_arm64_decompress_safe/g' lib/lz4/lz4_decompress.c
