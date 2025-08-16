@@ -52,7 +52,6 @@ jobs:
           # 配置内核选项
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_KPM=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           # 开启模块支持并关闭签名认证
           echo "CONFIG_MODULES=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_MODULE_SIG=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
