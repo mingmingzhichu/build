@@ -31,4 +31,16 @@ index f2568ef..f886371 100644
  /* runqueue "owned" by this group */
  static inline struct cfs_rq *group_cfs_rq(struct sched_entity *grp)
 
+diff --git a/kernel/sched/debug.c b/kernel/sched/debug.c
+index 7fa4448..e4f6fac 100644
+--- a/kernel/sched/debug.c
++++ b/kernel/sched/debug.c
+@@ -20,7 +20,7 @@
+ #include <linux/debugfs.h>
  
+ #include "sched.h"
+-
++extern int entity_eligible(struct cfs_rq *cfs_rq, struct sched_entity *se);
+ static DEFINE_SPINLOCK(sched_debug_lock);
+ 
+ /*
