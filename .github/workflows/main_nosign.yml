@@ -50,7 +50,7 @@ jobs:
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/su.patch
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/kpm.patch
           patch -p1 < su.patch
-          patch -p1 < kpm.patch
+          
 
           # 集成 KernelSU
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
@@ -91,7 +91,7 @@ jobs:
 
           cd ~
           unzip ~/AnyKernel3-master.zip -d ~/AnyKernel3-master
-          cp ~/out/arch/arm64/boot/Image.gz-dtb ~/AnyKernel3-master/
+          cp ~/out/arch/arm64/boot/Image ~/AnyKernel3-master/
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
