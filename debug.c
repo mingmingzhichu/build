@@ -20,7 +20,7 @@
 #include <linux/debugfs.h>
 
 #include "sched.h"
-
+extern int entity_eligible(struct cfs_rq *cfs_rq, struct sched_entity *se);
 static DEFINE_SPINLOCK(sched_debug_lock);
 
 /*
