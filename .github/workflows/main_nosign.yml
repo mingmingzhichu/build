@@ -62,6 +62,7 @@ jobs:
           echo "CONFIG_KALLSYMS_ALL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_LTO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KPM=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "CONFIG_DEBUG_KERNEL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
 
           # 集成 KernelSU
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
