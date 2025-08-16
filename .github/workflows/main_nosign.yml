@@ -56,18 +56,18 @@ jobs:
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           # 开启模块支持并关闭签名认证
           echo "CONFIG_MODULES=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_MODULE_SIG=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_MODULE_SIG_ALL=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_MODULE_SIG_SHA1=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_MODULE_SIG_SELF=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_MODULE_SIG is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_MODULE_SIG_ALL is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_MODULE_SIG_SHA1 is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_MODULE_SIG_SELF  is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KALLSYMS=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KALLSYMS_ALL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_DEBUG_INFO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KPM=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_DEBUG_KERNEL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_LTO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_THINLTO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_LLVM_POLLY=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_LTO is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_THINLTO is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_LLVM_POLLY is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
 
 
           # 集成 KernelSU
