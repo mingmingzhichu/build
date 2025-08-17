@@ -65,6 +65,14 @@ jobs:
           echo "CONFIG_DEBUG_INFO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KPM=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_DEBUG_KERNEL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          
+          echo "CONFIG_LTO_NONE=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_LTO is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_THINLTO is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_LLVM_POLLY is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_LTO_CLANG is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_ARCH_SUPPORTS_LTO_CLANG is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "# CONFIG_ARCH_SUPPORTS_THINLTO is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "# CONFIG_LD_DEAD_CODE_DATA_ELIMINATION is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           # 集成 KernelSU
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
