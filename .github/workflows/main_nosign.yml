@@ -65,6 +65,7 @@ jobs:
           echo "CONFIG_DEBUG_INFO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KPM=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_DEBUG_KERNEL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "CONFIG_LTO_NONE=y" >> gulch_defconfig
           echo "# CONFIG_LTO is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "# CONFIG_THINLTO is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "# CONFIG_LLVM_POLLY is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
