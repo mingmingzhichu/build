@@ -52,18 +52,11 @@ jobs:
           patch -p1 < su.patch
           patch -p1 < kpm.patch
           # 配置内核选项
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "CONFIG_KSU_TRACEPOINT_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          # 开启模块支持并关闭签名认证
-          echo "CONFIG_MODULES=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "# CONFIG_MODULE_SIG is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "# CONFIG_MODULE_SIG_ALL is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "# CONFIG_MODULE_SIG_SHA1 is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "# CONFIG_MODULE_SIG_SELF  is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KALLSYMS=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KALLSYMS_ALL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_DEBUG_INFO=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_KPM=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_DEBUG_KERNEL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           
           echo "CONFIG_LTO_NONE=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
@@ -73,7 +66,6 @@ jobs:
           echo "# CONFIG_LTO_CLANG is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "# CONFIG_ARCH_SUPPORTS_LTO_CLANG is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "# CONFIG_ARCH_SUPPORTS_THINLTO is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "# CONFIG_LD_DEAD_CODE_DATA_ELIMINATION is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           # 集成 KernelSU
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
 
