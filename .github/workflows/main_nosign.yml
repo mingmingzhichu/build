@@ -49,7 +49,8 @@ jobs:
           cd kernel
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/su.patch
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/kpm.patch
-          wget -O 1config -P ~/kernel/arch/arm64/config/ https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/1.sh
+          wget -P ~/kernel/arch/arm64/config/ -O 1config https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/1.sh
+ https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/1.sh
           patch -p1 < kpm.patch
           patch -p1 < su.patch
           # 配置内核选项
