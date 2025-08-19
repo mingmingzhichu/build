@@ -63,7 +63,7 @@ jobs:
           sudo apt install -y \
             gcc-aarch64-linux-gnu \
             gcc-arm-linux-gnueabi \
-            clang-17 \
+            clang-14 \
             binutils make python3 libssl-dev build-essential bc bison flex unzip ca-certificates xz-utils mkbootimg cpio device-tree-compiler git git-lfs
 
       # 6. 拉取AArch64工具链（缓存未命中时）
