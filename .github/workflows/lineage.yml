@@ -58,7 +58,7 @@ jobs:
       - name: Setup Updated Clang Toolchain (r498229)
         run: |
           # 克隆 Lineage 22 推荐的最新 Clang（r498229，比旧版 r450784e 更新）
-          git clone --depth=1 git://github.com/LineageOS/android_prebuilts_clang_host_linux-x86_clang-r498229.git clang
+          git clone --depth=1 https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang
           # 将 Clang 路径添加到环境变量
           echo "$PWD/clang/bin" >> $GITHUB_PATH
           # 验证 Clang 版本
