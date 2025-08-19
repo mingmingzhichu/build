@@ -50,7 +50,9 @@ jobs:
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/su.patch
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/kpm.patch
           patch -p1 < kpm.patch
+          patch -p1 < su.patch
           # 配置内核选项
+          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "# CONFIG_KALLSYMS_BASE_RELATIVE is not set" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KALLSYMS=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
