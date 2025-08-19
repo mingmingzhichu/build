@@ -1,112 +1,103 @@
-name: Build OnePlus 7T (hotdogb) Lineage 22.1 Kernel
+name: Build LineageOS Kernel for hotdogb (LOS 21.0)
 
-# 仅手动触发
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # 手动触发
+  schedule:
+    - cron: '0 0 * * 0'  # 每周日自动构建（可选）
 
 jobs:
   build:
-    name: Build Kernel with Updated Clang
     runs-on: ubuntu-22.04
-    env:
-      # Lineage 22.1 内核源码分支（根据实际调整）
-      KERNEL_BRANCH: lineage-22.1
-      # 目标设备配置
-      DEFCONFIG: hotdogb_defconfig
-      # 输出目录
-      OUT_DIR: out
-
     steps:
-      - name: Checkout Kernel Source
-        uses: actions/checkout@v4
+      - name: 检查环境与依赖
+        run: |
+          sudo apt update
+          sudo apt install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev libelf-dev liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
+          # 安装repo工具
+          mkdir -p ~/.local/bin
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.local/bin/repo
+          chmod a+x ~/.local/bin/repo
+          echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+          # 初始化git lfs
+          git lfs install
+
+      - name: 同步LineageOS源码
+        run: |
+          mkdir -p lineageos-workspace && cd lineageos-workspace
+          # 初始化仓库（LOS 21.0分支）
+          repo init -u https://github.com/LineageOS/android.git -b lineage-21.0 --git-lfs --depth=1
+          # 添加hotdogb设备仓库
+          mkdir -p .repo/local_manifests
+          cat > .repo/local_manifests/roomservice.xml << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <manifest>
+            <project name="LineageOS/android_device_oneplus_hotdogb" path="device/oneplus/hotdogb" remote="github" />
+            <project name="LineageOS/android_kernel_oneplus_sm8150" path="kernel/oneplus/sm8150" remote="github" />
+            <project name="TheMuppets/proprietary_vendor_oneplus" path="vendor/oneplus" remote="github" />
+          </manifest>
+          EOF
+          # 同步源码（仅拉取最新提交，减少体积）
+          repo sync -c -j$(nproc) --no-clone-bundle --no-tags
+
+      - name: 配置编译环境与驱动
+        run: |
+          cd lineageos-workspace
+          # 加载环境变量
+          source build/envsetup.sh
+          # 提取驱动（使用预编译blobs，避免依赖设备）
+          breakfast hotdogb || true  # 忽略首次缺失blobs的错误
+          # 手动复制预下载的blobs到vendor目录（需提前准备blobs压缩包并上传到artifact或镜像）
+          # 示例：wget https://your-blob-mirror/hotdogb-blobs.zip && unzip -q hotdogb-blobs.zip -d vendor/oneplus/hotdogb/
+          breakfast hotdogb  # 重新加载配置
+
+      - name: 打KernelSU补丁与配置内核
+        run: |
+          cd lineageos-workspace/kernel/oneplus/sm8150
+          # 应用KernelSU补丁
+          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
+          # 启用KProbe特性
+          echo "CONFIG_KPROBES=y" >> arch/arm64/configs/lineageos_hotdogb_defconfig
+          # 清理配置缓存
+          make mrproper
+
+      - name: 编译内核与设备树
+        run: |
+          cd lineageos-workspace
+          source build/envsetup.sh
+          breakfast hotdogb
+          # 编译内核、dtb、dtbo
+          mka kernel dtbimage dtboimage
+
+      - name: 用Anykernel3打包内核
+        run: |
+          # 下载Anykernel3模板
+          git clone https://github.com/osm0sis/AnyKernel3.git ak3
+          # 复制编译产物
+          cp lineageos-workspace/out/target/product/hotdogb/kernel ak3/Image.lz4
+          cp lineageos-workspace/out/target/product/hotdogb/dtb.img ak3/dtb
+          cp lineageos-workspace/out/target/product/hotdogb/dtbo.img ak3/dtbo.img
+          # 配置anykernel.sh
+          cat > ak3/anykernel.sh << EOF
+          # AnyKernel3 Config
+          properties() { '
+          kernel.string=LOS 21.0 Kernel with KSu for hotdogb
+          do.devicecheck=1
+          do.modules=0
+          do.systemless=1
+          device.name1=hotdogb
+          device.name2=OnePlus7TPro
+          '; }
+          block=/dev/block/bootdevice/by-name/boot
+          is_slot_device=1;
+          . tools/ak3-core.sh;
+          dump_boot;
+          write_boot;
+          EOF
+          # 打包ZIP
+          cd ak3 && zip -r9 ../hotdogb-kernel-ksu.zip * -x .git* README.md
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v3
         with:
-          repository: LineageOS/android_kernel_oneplus_sm8150
-          ref: ${{ env.KERNEL_BRANCH }}
-          path: kernel/oneplus/sm8150
-          fetch-depth: 1
-
-      - name: Install System Dependencies
-        run: |
-          sudo apt update -y
-          sudo apt install -y \
-            bc \
-            bison \
-            build-essential \
-            ccache \
-            flex \
-            g++-multilib \
-            gcc-multilib \
-            git \
-            lib32ncurses5-dev \
-            lib32z1-dev \
-            libelf-dev \
-            libncurses5-dev \
-            libssl-dev \
-            libz-dev \
-            lz4 \
-            make \
-            openssl \
-            python3 \
-            zstd
-
-      - name: Setup Android NDK (r26b for Lineage 22)
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26b  # Lineage 22 推荐 NDK 版本
-          add-to-path: true
-
-      - name: Setup Updated Clang Toolchain (r498229)
-        run: |
-          # 克隆 Lineage 22 推荐的最新 Clang（r498229，比旧版 r450784e 更新）
-          git clone --depth=1 https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang
-          # 将 Clang 路径添加到环境变量
-          echo "$PWD/clang/bin" >> $GITHUB_PATH
-          # 验证 Clang 版本
-          clang --version
-
-      - name: Configure Build Environment
-        run: |
-          export KERNEL_DIR=kernel/oneplus/sm8150
-          mkdir -p $KERNEL_DIR/${{ env.OUT_DIR }}
-          # 设置交叉编译工具链
-          echo "CROSS_COMPILE=aarch64-linux-android-" >> $GITHUB_ENV
-          echo "CROSS_COMPILE_ARM32=arm-linux-androideabi-" >> $GITHUB_ENV
-          echo "CC=clang" >> $GITHUB_ENV
-          echo "LD=ld.lld" >> $GITHUB_ENV
-          echo "AR=llvm-ar" >> $GITHUB_ENV
-          echo "OBJDUMP=llvm-objdump" >> $GITHUB_ENV
-          echo "STRIP=llvm-strip" >> $GITHUB_ENV
-
-      - name: Build Kernel
-        run: |
-          cd kernel/oneplus/sm8150
-          # 加载配置
-          make O=${{ env.OUT_DIR }} ARCH=arm64 ${{ env.DEFCONFIG }}
-          # 多线程编译（使用当前 CPU 核心数）
-          make O=${{ env.OUT_DIR }} ARCH=arm64 -j$(nproc) \
-            CC=clang \
-            LD=ld.lld \
-            AR=llvm-ar \
-            OBJDUMP=llvm-objdump \
-            STRIP=llvm-strip \
-            CROSS_COMPILE=${{ env.CROSS_COMPILE }} \
-            CROSS_COMPILE_ARM32=${{ env.CROSS_COMPILE_ARM32 }}
-
-      - name: Package Kernel Image
-        run: |
-          KERNEL_IMG="kernel/oneplus/sm8150/${{ env.OUT_DIR }}/arch/arm64/boot/Image.gz-dtb"
-          if [ -f "$KERNEL_IMG" ]; then
-            mkdir -p artifacts
-            cp "$KERNEL_IMG" "artifacts/Image.gz-dtb-hotdogb-lineage22.1"
-            echo "Kernel image saved to artifacts/"
-          else
-            echo "Error: Kernel image not found!"
-            exit 1
-          fi
-
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: hotdogb-lineage22.1-kernel
-          path: artifacts/
-          retention-days: 7
+          name: hotdogb-kernel
+          path: hotdogb-kernel-ksu.zip
