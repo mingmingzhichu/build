@@ -103,7 +103,7 @@ jobs:
 
       # 10. 仅上传内核编译产物到GitHub Actions制品（无Releases）
       - name: Upload kernel artifacts to Actions
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: LOS22.2-Kernel-Artifacts
           path: |
