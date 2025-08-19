@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       # Lineage 22.1 内核源码分支（根据实际调整）
-      KERNEL_BRANCH: lineage-22
+      KERNEL_BRANCH: lineage-22.1
       # 目标设备配置
       DEFCONFIG: hotdogb_defconfig
       # 输出目录
