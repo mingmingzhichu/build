@@ -101,6 +101,8 @@ jobs:
           unzip ~/AnyKernel3-master.zip -d ~/AnyKernel3-master
           cp ~/out/.config ~/AnyKernel3-master/config
           cp ~/out/arch/arm64/boot/Image ~/AnyKernel3-master/Image
+          aarch64-linux-gnu-objdump -t ~/out/arch/arm64/boot/Image | grep kallsyms_names
+
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
