@@ -79,7 +79,7 @@ jobs:
         if: steps.cache-clang.outputs.cache-hit != 'true'
         run: |
           rm -rf clang
-          git clone https://github.com/grm34/proton-clang -b android15 clang --depth=1
+          git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang --depth=1
 
       # 8. 拉取LineageOS 22.2 (Android 15) 原生内核源码
       - name: Checkout Android 15 kernel source
