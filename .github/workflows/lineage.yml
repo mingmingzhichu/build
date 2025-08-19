@@ -1,114 +1,113 @@
-name: Build LineageOS 22.1 Kernel for hotdogb
-
+name: Build OnePlus-Sm8150-Kernel-LOS22.2
 on:
-  workflow_dispatch:  # 手动触发
-  schedule:
-    - cron: '0 0 * * 0'  # 每周日自动构建（可选）
+  workflow_dispatch:
+  push:
+    branches:
+      - oneplus/LOS_SM8150_15.0
+  pull_request:
+    branches:
+      - oneplus/LOS_SM8150_15.0
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+    # 移除contents: write权限（仅上传制品无需发布权限）
+    permissions:
+      actions: write
+
+    env:
+      ANDROID_VERSION: android15
+      KERNEL_VERSION: 4.14.365
+      CCACHE_COMPILERCHECK: '%compiler% -dumpmachine; %compiler% -dumpversion'
+      CCACHE_NOHASHDIR: 'true'
+      CCACHE_MAXSIZE: '2G'
+      CCACHE_HARDLINK: 'true'
+
     steps:
-      - name: 检查环境与安装依赖
-        run: |
-          sudo apt update
-          # Android 15编译依赖（新增lib32zstd-dev等）
-          sudo apt install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib git git-lfs gnupg gperf imagemagick lib32ncurses5-dev lib32readline-dev lib32z1-dev  libelf-dev liblz4-tool libncurses5 libncurses5-dev libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools xsltproc zip zlib1g-dev
-          # 安装repo工具
-          mkdir -p ~/.local/bin
-          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.local/bin/repo
-          chmod a+x ~/.local/bin/repo
-          echo "PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
-          # 初始化git lfs
-          git lfs install
-          # 配置ccache加速
-          ccache -M 50G
-          echo "USE_CCACHE=1" >> $GITHUB_ENV
+      # 1. 配置ccache加速编译
+      - name: Set up ccache
+        uses: hendrikmuhs/ccache-action@v1.2
 
-      - name: 同步LineageOS 22.1源码
-        run: |
-          mkdir -p lineageos-workspace && cd lineageos-workspace
-          # 初始化LOS 22.1分支（基于Android 15）
-          repo init -u https://github.com/LineageOS/android.git -b lineage-22.1 --git-lfs --depth=1
-          # 添加hotdogb设备仓库（LOS 22.1适配版）
-          mkdir -p .repo/local_manifests
-          cat > .repo/local_manifests/roomservice.xml << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <manifest>
-            <!-- 设备配置（需LOS 22.1兼容版本） -->
-            <project name="LineageOS/android_device_oneplus_hotdogb" path="device/oneplus/hotdogb" remote="github" revision="lineage-22.1" />
-            <!-- 内核仓库（SM8150系列LOS 22.1分支） -->
-            <project name="LineageOS/android_kernel_oneplus_sm8150" path="kernel/oneplus/sm8150" remote="github" revision="lineage-22.1" />
-            <!-- 厂商驱动（更新至Android 15兼容版本） -->
-            <project name="TheMuppets/proprietary_vendor_oneplus" path="vendor/oneplus" remote="github" />
-          </manifest>
-          EOF
-          # 同步源码（仅最新提交，减少体积）
-          repo sync -c -j$(nproc) --no-clone-bundle --no-tags
-
-      - name: 配置设备驱动与编译环境
-        run: |
-          cd lineageos-workspace
-          # 加载环境变量
-          source build/envsetup.sh
-          # 处理私有驱动（Android 15需更新blobs）
-          breakfast hotdogb || true  # 忽略首次缺失提示
-          # 从镜像下载Android 15兼容的blobs（需提前准备）
-          # wget https://your-mirror/hotdogb-los22-blobs.zip && unzip -q hotdogb-los22-blobs.zip -d vendor/oneplus/hotdogb/
-          breakfast hotdogb  # 重新加载配置
-
-      - name: 集成KernelSU与内核配置
-        run: |
-          cd lineageos-workspace/kernel/oneplus/sm8150
-          # 应用最新KernelSU补丁（适配Android 15）
-          curl -LSs "https://raw.githubusercontent.com/tiann/KernelSU/main/kernel/setup.sh" | bash -
-          # 启用Android 15必需的内核选项
-          echo "CONFIG_KPROBES=y" >> arch/arm64/configs/lineageos_hotdogb_defconfig
-          echo "CONFIG_SECURITY_SELINUX_DEVELOP=y" >> arch/arm64/configs/lineageos_hotdogb_defconfig  # SELinux调试（可选）
-          # 清理旧配置
-          make mrproper
-
-      - name: 编译内核与设备树
-        run: |
-          cd lineageos-workspace
-          source build/envsetup.sh
-          breakfast hotdogb
-          # 编译内核、dtb、dtbo（Android 15需dtbo签名）
-          mka kernel dtbimage dtboimage
-          # 验证产物
-          ls -lh out/target/product/hotdogb/{kernel,dtb.img,dtbo.img}
-
-      - name: 用Anykernel3打包（适配Android 15）
-        run: |
-          # 克隆Anykernel3并配置
-          git clone https://github.com/osm0sis/AnyKernel3.git ak3
-          # 复制编译产物
-          cp lineageos-workspace/out/target/product/hotdogb/kernel ak3/Image.lz4
-          cp lineageos-workspace/out/target/product/hotdogb/dtb.img ak3/dtb
-          cp lineageos-workspace/out/target/product/hotdogb/dtbo.img ak3/dtbo.img
-          # 配置Anykernel脚本（适配A/B分区与Android 15）
-          cat > ak3/anykernel.sh << EOF
-          properties() { '
-          kernel.string=LOS 22.1 Kernel with KSu for hotdogb (Android 15)
-          do.devicecheck=1
-          do.modules=0
-          do.systemless=1
-          device.name1=hotdogb
-          device.name2=OnePlus7TPro
-          supported.versions=15
-          '; }
-          block=/dev/block/bootdevice/by-name/boot
-          is_slot_device=1;
-          . tools/ak3-core.sh;
-          dump_boot;
-          write_boot;
-          EOF
-          # 打包ZIP
-          cd ak3 && zip -r9 ../hotdogb-los22-kernel-ksu.zip * -x .git* README.md
-
-      - name: 上传编译产物
-        uses: actions/upload-artifact@v4
+      # 2. 缓存AArch64交叉编译工具链
+      - id: cache-aarch64
+        name: Cache AArch64 prebuilt toolchain
+        uses: actions/cache@v3
         with:
-          name: hotdogb-los22.1-kernel
-          path: hotdogb-los22-kernel-ksu.zip
-          retention-days: 7  # 产物保留7天
+          path: aarch64/
+          key: ${{ runner.os }}-aarch64-prebuilt-${{ hashFiles('aarch64/version.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-aarch64-prebuilt-
+
+      # 3. 缓存Android 15适配的Clang工具链
+      - id: cache-clang
+        name: Cache Clang toolchain
+        uses: actions/cache@v3
+        with:
+          path: clang/
+          key: ${{ runner.os }}-clang-android15
+          restore-keys: |
+            ${{ runner.os }}-clang-
+
+      # 4. 清理系统冗余文件，释放磁盘空间
+      - name: Remove unnecessary files
+        run: |
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      # 5. 安装编译必需依赖（仅原生编译所需）
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt install -y \
+            gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi \
+            clang-17 \
+            binutils make python3 libssl-dev build-essential bc bison flex unzip ca-certificates xz-utils mkbootimg cpio device-tree-compiler git git-lfs
+
+      # 6. 拉取AArch64工具链（缓存未命中时）
+      - name: Clone AArch64 prebuilt toolchain
+        if: steps.cache-aarch64.outputs.cache-hit != 'true'
+        run: |
+          rm -rf aarch64
+          git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git aarch64 --depth=1
+          cd aarch64 && git rev-parse HEAD > version.txt
+
+      # 7. 拉取Android 15适配的Proton Clang（缓存未命中时）
+      - name: Clone Proton Clang (Android 15)
+        if: steps.cache-clang.outputs.cache-hit != 'true'
+        run: |
+          rm -rf clang
+          git clone https://github.com/grm34/proton-clang -b android15 clang --depth=1
+
+      # 8. 拉取LineageOS 22.2 (Android 15) 原生内核源码
+      - name: Checkout Android 15 kernel source
+        run: |
+          rm -rf kernel
+          git clone https://github.com/Ninjona/android_kernel_oneplus_sm8150 \
+            -b oneplus/LOS_SM8150_15.0 --depth=1 kernel
+
+      # 9. 原生内核编译（使用源码自带defconfig，无额外配置）
+      - name: Build kernel (Stock LOS22.2 Config)
+        run: |
+          export KERNEL_DEFCONFIG="lineage_sm8150_defconfig"
+          export KERNEL_CMDLINE="ARCH=arm64 CLANG_TRIPLE=aarch64-linux-gnu- CROSS_COMPILE=aarch64-linux-androidkernel- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 O=out"
+          export PATH=$(pwd)/clang/bin/:$(pwd)/aarch64/bin/:$PATH
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export LD=ld.lld
+          cd kernel
+          make $KERNEL_CMDLINE CC="ccache clang" $KERNEL_DEFCONFIG
+          make $KERNEL_CMDLINE CC="ccache clang" -j$(nproc --all)
+
+      # 10. 仅上传内核编译产物到GitHub Actions制品（无Releases）
+      - name: Upload kernel artifacts to Actions
+        uses: actions/upload-artifact@v3
+        with:
+          name: LOS22.2-Kernel-Artifacts
+          path: |
+            kernel/out/arch/arm64/boot/Image          # 核心内核镜像
+            kernel/out/arch/arm64/boot/dts/qcom/*.dtb # 设备树文件
+            kernel/out/arch/arm64/boot/dtbo.img       # 设备树叠加文件
+          retention-days: 30  # 制品保留30天（可按需调整）
