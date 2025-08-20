@@ -1,133 +1,68 @@
-name: Build hotdogb-LOS22.2-Kernel
-
-# 触发条件：手动触发、推送/PR到指定分支
+name: Build LineageOS 22.2 Kernel with Clang r536225
 on:
-  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  build-kernel:
-    runs-on: ubuntu-22.04
-    permissions:
-      actions: write  # 仅需上传制品权限，无需 Releases 权限
-
-    env:
-      # 基础配置（固定）
-      ARCH: arm64
-      SUBARCH: arm64
-      KERNEL_SRC_REPO: "https://github.com/LineageOS/android_kernel_oneplus_sm8150.git"
-      KERNEL_BRANCH: "lineage-22.0"  # LOS 22.2 对应分支
-      CLANG_REPO: "https://github.com/LineageOS/android_prebuilts_clang_host_linux-x86.git"
-      GCC64_REPO: "https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9.git"
-      DEFCONFIG: "hotdogb_defconfig"
-      # 动态参数（从手动触发输入获取）
-      ENABLE_ZRAM: ${{ github.event.inputs.ENABLE_ZRAM || 'true' }}
-      # ccache 配置（加速编译）
-      CCACHE_MAXSIZE: "10G"
-      CCACHE_NOHASHDIR: "true"
-      CCACHE_HARDLINK: "true"
-
+  build_kernel:
+    runs-on: ubuntu-latest
     steps:
-      # 1. 清理系统冗余文件，释放磁盘空间
-      - name: Cleanup unnecessary files
-        run: |
-          sudo rm -rf /opt/ghc /usr/local/share/boost /usr/share/dotnet "$AGENT_TOOLSDIRECTORY"
-          df -h  # 查看清理后磁盘空间
-
-      # 2. 安装编译依赖（Ubuntu 22.04 适配）
-      - name: Install build dependencies
-        run: |
-          sudo apt update -y
-          sudo apt install -y \
-            build-essential git git-lfs bc libelf-dev pahole \
-            gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu ccache \
-            device-tree-compiler lz4  # 新增 DT 编译和 LZ4 压缩依赖
-
-      # 3. 配置 ccache 加速（缓存编译产物）
-      - name: Set up ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+      - name: Checkout LineageOS 22.2 kernel source
+        uses: actions/checkout@v4
         with:
-          max-size: ${{ env.CCACHE_MAXSIZE }}
-          key: ${{ runner.os }}-ccache-hotdogb-los22.2
+          repository: "LineageOS/android_kernel_oneplus_sm8150"
+          ref: "lineage-22.2"
+          fetch-depth: 1
+          submodules: true
 
-      # 4. 缓存工具链（Clang + GCC64），避免重复下载
-      - name: Cache toolchains (Clang + GCC64)
-        id: cache-toolchains
-        uses: actions/cache@v3
+      - name: Download custom config file (1.txt)
+        run: |
+          mkdir -p custom_config
+          curl -o custom_config/1.txt https://github.com/mingmingzhichu/build/raw/refs/heads/main/1.txt
+
+      - name: Clone Clang r536225 toolchain
+        run: |
+          # 克隆指定Clang工具链
+          git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang --depth=1
+
+      - name: Set up build environment
+        run: |
+          sudo apt-get update
+          # 保留基础依赖，移除GCC交叉编译器
+          sudo apt-get install -y bc bison flex libncurses5-dev libssl-dev python3-pip device-tree-compiler
+
+      - name: Configure kernel with custom config
+        run: |
+          cd android_kernel_oneplus_sm8150
+          export ARCH=arm64
+          export SUBARCH=arm64
+          # 配置Clang工具链路径
+          export PATH=$(pwd)/../clang/bin:$PATH
+          export CROSS_COMPILE=aarch64-linux-gnu-
+          export CC=clang
+          export CXX=clang++
+          export LD=ld.lld
+          export AR=llvm-ar
+          export NM=llvm-nm
+          export OBJCOPY=llvm-objcopy
+          export OBJDUMP=llvm-objdump
+          export STRIP=llvm-strip
+
+          # 加载默认配置并合并自定义配置
+          make vendor/sm8150-perf_defconfig
+          cat ../custom_config/1.txt >> .config
+          make olddefconfig
+
+      - name: Build kernel with Clang
+        run: |
+          cd android_kernel_oneplus_sm8150
+          # 使用Clang编译，保留多核加速
+          make -j$(nproc)
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
         with:
-          path: |
-            ./clang
-            ./gcc64
-          key: ${{ runner.os }}-toolchains-hotdogb-los22.2-${{ hashFiles('clang/version.txt', 'gcc64/version.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-toolchains-hotdogb-los22.2-
-
-      # 5. 拉取 Android 15 适配的工具链（缓存未命中时）
-      - name: Clone toolchains (Clang + GCC64)
-        if: steps.cache-toolchains.outputs.cache-hit != 'true'
-        run: |
-          # 拉取 Clang（Android 15 需 clang-r498229+）
-          git clone --depth=1 -b ${{ env.KERNEL_BRANCH }} ${{ env.CLANG_REPO }} clang
-          # 拉取 ARM64 GCC 工具链
-          git clone --depth=1 ${{ env.GCC64_REPO }} gcc64
-          # 生成工具链版本文件（用于缓存key）
-          (cd clang && git rev-parse HEAD > ../clang/version.txt)
-          (cd gcc64 && git rev-parse HEAD > ../gcc64/version.txt)
-
-      # 6. 拉取 hotdogb LOS 22.2 内核源码
-      - name: Clone hotdogb kernel source
-        run: |
-          git clone --depth=1 -b ${{ env.KERNEL_BRANCH }} ${{ env.KERNEL_SRC_REPO }} kernel
-          cd kernel && git rev-parse HEAD > ../kernel-version.txt  # 记录内核版本
-
-      # 7. 配置内核参数（启用 ZRAM 等 Android 15 特性）
-      - name: Configure kernel (enable ZRAM if needed)
-        run: |
-          cd kernel
-          # 加载默认配置
-          make O=out ${{ env.DEFCONFIG }}
-          
-          # 若启用 ZRAM，添加 Android 15 ZSTD 压缩配置
-          if [ "${{ env.ENABLE_ZRAM }}" = "true" ]; then
-            echo "CONFIG_ZRAM=y" >> out/.config
-            echo "CONFIG_ZRAM_MULTI_COMP=y" >> out/.config
-            echo "CONFIG_CRYPTO_ZSTD=y" >> out/.config  # Android 15 新增 ZSTD 支持
-            echo "CONFIG_ZRAM_DEF_COMP_ZSTD=y" >> out/.config
-            echo "CONFIG_ZRAM_WRITEBACK=y" >> out/.config
-            echo "CONFIG_ZRAM_MEMORY_TRACKING=y" >> out/.config
-          fi
-
-          # 强制启用 Android 15 必需的 LLVM 特性
-          echo "CONFIG_LLVM=y" >> out/.config
-          echo "CONFIG_LLVM_IAS=y" >> out/.config
-
-      # 8. 编译内核（多线程 + ccache 加速）
-      - name: Build hotdogb LOS 22.2 kernel
-        run: |
-          cd kernel
-          # 配置环境变量（工具链路径 + 编译参数）
-          export PATH=$GITHUB_WORKSPACE/clang/clang-r498229/bin:$GITHUB_WORKSPACE/gcc64/bin:$PATH
-          export CROSS_COMPILE=aarch64-linux-android-
-          export CLANG_TRIPLE=aarch64-linux-gnu-
-          export CC="ccache clang"
-          export LLVM=1
-          export LLVM_IAS=1
-
-          # 编译内核 + DTBO（Android 15 必需）
-          make O=out -j$(nproc)
-          make O=out dtboimage  # 单独生成 DTBO 镜像
-
-          # 生成 LZ4 压缩内核镜像（系统默认使用）
-          lz4 -f out/arch/${{ env.ARCH }}/boot/Image out/arch/${{ env.ARCH }}/boot/Image.lz4
-
-      # 9. 上传内核产物到 GitHub Actions 制品（仅保留核心文件）
-      - name: Upload kernel artifacts
-        uses: actions/upload-artifact@v4  # 使用最新版，解决弃用警告
-        with:
-          name: hotdogb-LOS22.2-Kernel-${{ github.run_number }}
-          path: |
-            kernel/out/arch/${{ env.ARCH }}/boot/Image          # 未压缩内核镜像
-            kernel/out/arch/${{ env.ARCH }}/boot/Image.lz4      # LZ4 压缩镜像（系统用）
-            kernel/out/arch/${{ env.ARCH }}/boot/dtbo.img       # 设备树叠加文件
-            kernel/out/arch/${{ env.ARCH }}/boot/dts/qcom/sm8150-hotdogb.dtb  # 设备树文件
-            kernel-version.txt  # 内核版本记录
-          retention-days: 14  # 制品保留 14 天（可按需调整）
+          name: kernel-clang-output
+          path: android_kernel_oneplus_sm8150/arch/arm64/boot/Image.gz-dtb
