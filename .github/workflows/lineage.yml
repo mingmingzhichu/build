@@ -20,11 +20,7 @@ jobs:
         run: |
           sudo apt-get update
           # 关键修复：安装GNU交叉编译工具链（解决aarch64-linux-gnu-*命令缺失）
-          sudo apt-get install -y \
-            gcc-aarch64-linux-gnu \  # 核心GNU交叉编译器
-            g++-aarch64-linux-gnu \  # C++工具
-            binutils-aarch64-linux-gnu \  # 包含ld、ar等二进制工具
-            bc bison flex libncurses5-dev libssl-dev python3-pip device-tree-compiler libelf-dev
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu  binutils-aarch64-linux-gnu bc bison flex libncurses5-dev libssl-dev python3-pip device-tree-compiler libelf-dev
 
       - name: Configure kernel with custom config
         run: |
