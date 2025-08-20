@@ -48,7 +48,7 @@ jobs:
           export STRIP=llvm-strip
 
           # 加载默认配置并合并自定义配置
-          make vendor/sm8150-pref_defconfig
+          make vendor/sm8150-perf_defconfig
 
       - name: Build kernel with Clang
         run: |
