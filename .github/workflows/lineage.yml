@@ -48,7 +48,7 @@ jobs:
           export STRIP=llvm-strip
 
           # 加载默认配置并合并自定义配置
-          make decomfig
+          make deconfig
 
       - name: Build kernel with Clang
         run: |
