@@ -9,18 +9,11 @@ jobs:
   build_kernel:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout LineageOS 22.2 kernel source
-        uses: actions/checkout@v4
-        with:
-          repository: "LineageOS/android_kernel_oneplus_sm8150"
-          ref: "lineage-22.2"
-          fetch-depth: 1
-          submodules: true
 
       - name: Download custom config file (1.txt)
         run: |
-          mkdir -p custom_config
-          curl -o custom_config/1.txt https://github.com/mingmingzhichu/build/raw/refs/heads/main/1.txt
+          git clone https://github.com/LineageOS/android_kernel_oneplus_sm8150.git --depth=1 -b lineage-22.2
+          
 
       - name: Clone Clang r536225 toolchain
         run: |
@@ -35,7 +28,9 @@ jobs:
 
       - name: Configure kernel with custom config
         run: |
+  
           cd android_kernel_oneplus_sm8150
+          curl -o arch/arm64/configs/1_config https://github.com/mingmingzhichu/build/raw/refs/heads/main/1.txt
           export ARCH=arm64
           export SUBARCH=arm64
           # 配置Clang工具链路径
@@ -51,9 +46,7 @@ jobs:
           export STRIP=llvm-strip
 
           # 加载默认配置并合并自定义配置
-          make vendor/sm8150-perf_defconfig
-          cat ../custom_config/1.txt >> .config
-          make olddefconfig
+          make 1_config
 
       - name: Build kernel with Clang
         run: |
