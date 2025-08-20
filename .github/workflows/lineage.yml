@@ -1,7 +1,6 @@
 name: Build LineageOS 22.2 Kernel with Clang
 on:
-  push: [ main ]
-  pull_request: [ main ]
+  workflow_dispatch:
 
 jobs:
   build_kernel:
