@@ -25,6 +25,8 @@ jobs:
           sudo apt-get update
           # 保留基础依赖，移除GCC交叉编译器
           sudo apt-get install -y bc bison flex libncurses5-dev libssl-dev python3-pip device-tree-compiler
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu binutils-aarch64-linux-gnu bc bison flex libncurses5-dev libssl-dev python3-pip device-tree-compiler
 
       - name: Configure kernel with custom config
         run: |
