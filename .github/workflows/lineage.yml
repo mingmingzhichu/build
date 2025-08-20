@@ -1,4 +1,4 @@
-name: Build LineageOS 22.2 Kernel with Clang r536225
+name: Build LineageOS 22.2 Kernel with Clang
 on:
   push: [ main ]
   pull_request: [ main ]
@@ -7,16 +7,9 @@ jobs:
   build_kernel:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout LineageOS 22.2 kernel source
-        uses: actions/checkout@v4
-        with:
-          repository: "LineageOS/android_kernel_oneplus_sm8150"
-          ref: "lineage-22.2"
-          fetch-depth: 1
-          submodules: true
-
       - name: Download custom config file (1.txt)
         run: |
+          git clone https://github.com/LineageOS/android_kernel_oneplus_sm8150.git -b lineage-22.2 --depth=1
           mkdir -p custom_config
           curl -o custom_config/1.txt https://github.com/mingmingzhichu/build/raw/refs/heads/main/1.txt
 
