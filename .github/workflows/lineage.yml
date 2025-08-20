@@ -32,7 +32,7 @@ jobs:
         run: |
   
           cd android_kernel_oneplus_sm8150
-          curl -o ./arch/arm64/configs/1_deconfig https://github.com/mingmingzhichu/build/raw/refs/heads/main/1.txt
+          curl -o ./arch/arm64/configs/1_defconfig https://github.com/mingmingzhichu/build/raw/refs/heads/main/1.txt
           export ARCH=arm64
           export SUBARCH=arm64
           # 配置Clang工具链路径
@@ -48,7 +48,7 @@ jobs:
           export STRIP=llvm-strip
 
           # 加载默认配置并合并自定义配置
-          make 1_deconfig
+          make 1_defconfig
 
       - name: Build kernel with Clang
         run: |
