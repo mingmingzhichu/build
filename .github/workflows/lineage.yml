@@ -1,9 +1,7 @@
 name: Build LineageOS 22.2 Kernel with Clang r536225
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  push: [ main ]
+  pull_request: [ main ]
 
 jobs:
   build_kernel:
@@ -24,41 +22,44 @@ jobs:
 
       - name: Clone Clang r536225 toolchain
         run: |
-          # 克隆指定Clang工具链
           git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang --depth=1
 
       - name: Set up build environment
         run: |
           sudo apt-get update
-          # 保留基础依赖，移除GCC交叉编译器
-          sudo apt-get install -y bc bison flex libncurses5-dev libssl-dev python3-pip device-tree-compiler
+          # 关键修复：安装GNU交叉编译工具链（解决aarch64-linux-gnu-*命令缺失）
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \  # 核心GNU交叉编译器
+            g++-aarch64-linux-gnu \  # C++工具
+            binutils-aarch64-linux-gnu \  # 包含ld、ar等二进制工具
+            bc bison flex libncurses5-dev libssl-dev python3-pip device-tree-compiler libelf-dev
 
       - name: Configure kernel with custom config
         run: |
           cd android_kernel_oneplus_sm8150
           export ARCH=arm64
           export SUBARCH=arm64
-          # 配置Clang工具链路径
+          # 配置Clang路径和工具链
           export PATH=$(pwd)/../clang/bin:$PATH
-          export CROSS_COMPILE=aarch64-linux-gnu-
           export CC=clang
           export CXX=clang++
-          export LD=ld.lld
+          export LD=ld.lld  # 使用Clang的链接器
           export AR=llvm-ar
           export NM=llvm-nm
           export OBJCOPY=llvm-objcopy
           export OBJDUMP=llvm-objdump
           export STRIP=llvm-strip
+          # 保留GNU交叉工具链前缀（用于脚本兼容）
+          export CROSS_COMPILE=aarch64-linux-gnu-
 
-          # 加载默认配置并合并自定义配置
-          make vendor/sm8150-perf_defconfig
-          cat ../custom_config/1.txt >> .config
-          make olddefconfig
+          # 修复配置文件名错误（原报错“1_config”不存在，应为正确的defconfig）
+          make vendor/sm8150-perf_defconfig  # 加载官方默认配置
+          cat ../custom_config/1.txt >> .config  # 合并自定义配置
+          make olddefconfig  # 自动处理配置冲突
 
-      - name: Build kernel with Clang
+      - name: Build kernel
         run: |
           cd android_kernel_oneplus_sm8150
-          # 使用Clang编译，保留多核加速
           make -j$(nproc)
 
       - name: Upload build output
