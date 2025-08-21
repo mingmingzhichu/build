@@ -2,9 +2,6 @@ name: Build LineageOS 22.2 Kernel for hotdogb
 
 on:
   workflow_dispatch:  # 手动触发构建
-  push:
-    branches:
-      - main  # 当 main 分支更新时自动触发
 
 env:
   DEVICE: hotdogb
