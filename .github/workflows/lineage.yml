@@ -1,57 +1,78 @@
-name: Build LineageOS 22.2 Kernel with Clang
-on:
+name: Build LineageOS 22.2 Kernel with kernel.mk
+on: 
   workflow_dispatch:
 
 jobs:
   build_kernel:
     runs-on: ubuntu-latest
     steps:
-      - name: Download custom config file (1.txt)
+      - name: 检查基础代码
         run: |
+          # 克隆内核源码
           git clone https://github.com/LineageOS/android_kernel_oneplus_sm8150.git -b lineage-22.2 --depth=1
-          mkdir -p custom_config
-          curl -o custom_config/1.txt https://github.com/mingmingzhichu/build/raw/refs/heads/main/1.txt
+          # 克隆 LineageOS  vendor 仓库（获取 kernel.mk）
+          git clone https://github.com/LineageOS/android_vendor_lineage.git vendor/lineage --depth=1
 
-      - name: Clone Clang r536225 toolchain
+      - name: 克隆 Clang 工具链
         run: |
           git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang --depth=1
 
-      - name: Set up build environment
+      - name: 配置构建环境
         run: |
           sudo apt-get update
-          # 关键修复：安装GNU交叉编译工具链（解决aarch64-linux-gnu-*命令缺失）
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu  binutils-aarch64-linux-gnu bc bison flex libncurses5-dev libssl-dev python3-pip device-tree-compiler libelf-dev
+          # 安装必要依赖（参考 kernel.mk 依赖需求）
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            binutils-aarch64-linux-gnu bc bison flex \
+            libncurses5-dev libssl-dev python3-pip \
+            device-tree-compiler libelf-dev
 
-      - name: Configure kernel with custom config
+      - name: 定义内核配置变量
         run: |
           cd android_kernel_oneplus_sm8150
-          export ARCH=arm64
-          export SUBARCH=arm64
-          # 配置Clang路径和工具链
-          export PATH=$(pwd)/../clang/bin:$PATH
-          export CC=clang
-          export CXX=clang++
-          export LD=ld.lld  # 使用Clang的链接器
-          export AR=llvm-ar
-          export NM=llvm-nm
-          export OBJCOPY=llvm-objcopy
-          export OBJDUMP=llvm-objdump
-          export STRIP=llvm-strip
-          # 保留GNU交叉工具链前缀（用于脚本兼容）
-          export CROSS_COMPILE=aarch64-linux-gnu-
+          # 创建临时 BoardConfig 片段（符合 kernel.mk 规范）
+          cat > BoardConfig.kernel.mk << EOF
+          TARGET_KERNEL_CONFIG := vendor/sm8150-perf_defconfig
+          TARGET_KERNEL_CLANG_COMPILE := true
+          KERNEL_ARCH := arm64
+          KERNEL_CLANG_TRIPLE := aarch64-linux-gnu-
+          TARGET_KERNEL_CLANG_PATH := $(pwd)/../clang
+          CROSS_COMPILE := aarch64-linux-gnu-
+          BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb
+          # 可选：添加自定义配置覆盖
+          KERNEL_CONFIG_OVERRIDE := CONFIG_DEBUG_INFO=y CONFIG_SCHED_DEBUG=y
+          EOF
 
-          # 修复配置文件名错误（原报错“1_config”不存在，应为正确的defconfig）
-          make vendor/sm8150-perf_defconfig  # 加载官方默认配置
-          cat ../custom_config/1.txt >> .config  # 合并自定义配置
-          make olddefconfig  # 自动处理配置冲突
-
-      - name: Build kernel
+      - name: 生成内核配置（基于 kernel.mk）
         run: |
           cd android_kernel_oneplus_sm8150
-          make -j$(nproc)
+          # 加载 kernel.mk 脚本
+          source ../vendor/lineage/build/tasks/kernel.mk
+          # 创建输出目录
+          export KERNEL_OUT=$(pwd)/kernel_out
+          mkdir -p \$KERNEL_OUT
+          # 调用 kernel.mk 内置函数生成配置
+          $(call make-kernel-config,\$KERNEL_OUT,\$(TARGET_KERNEL_CONFIG))
+          # 验证配置文件
+          if [ ! -f "\$KERNEL_OUT/.config" ]; then
+            echo "配置生成失败！"
+            exit 1
+          fi
 
-      - name: Upload build output
+      - name: 编译内核
+        run: |
+          cd android_kernel_oneplus_sm8150
+          source ../vendor/lineage/build/tasks/kernel.mk
+          export KERNEL_OUT=$(pwd)/kernel_out
+          # 调用 kernel.mk 编译目标
+          $(call make-kernel-target,\$(BOARD_KERNEL_IMAGE_NAME))
+          # 编译 DTB（若需要）
+          $(call make-kernel-target,dtbs)
+
+      - name: 上传编译产物
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-clang-output
-          path: android_kernel_oneplus_sm8150/arch/arm64/boot/Image.gz-dtb
+          name: lineage-kernel-output
+          path: |
+            android_kernel_oneplus_sm8150/kernel_out/arch/arm64/boot/Image.gz-dtb
+            android_kernel_oneplus_sm8150/kernel_out/.config
