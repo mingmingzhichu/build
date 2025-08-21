@@ -1,34 +1,42 @@
-name: Build LineageOS 22.2 Kernel with kernel.mk (Fixed)
+name: 完整 LineageOS 22.2 内核构建工作流
 on: 
-  workflow_dispatch:
+  workflow_dispatch:  # 手动触发构建
 
 jobs:
   build_kernel:
     runs-on: ubuntu-latest
     steps:
-      - name: 检查基础代码
+      - name: 检查代码仓库
         run: |
+          # 克隆内核源码（指定分支）
           git clone https://github.com/LineageOS/android_kernel_oneplus_sm8150.git -b lineage-22.2 --depth=1
+          # 克隆 LineageOS  vendor 配置
           git clone https://github.com/LineageOS/android_vendor_lineage.git vendor/lineage --depth=1
+          # 验证源码目录结构
+          ls -la android_kernel_oneplus_sm8150
 
-      - name: 克隆 Clang 工具链
+      - name: 安装 Clang 工具链
         run: |
           git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang --depth=1
+          # 验证工具链路径
+          ls -la clang/bin
 
-      - name: 配置构建环境
+      - name: 配置系统依赖
         run: |
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             binutils-aarch64-linux-gnu bc bison flex \
             libncurses5-dev libssl-dev python3-pip \
-            device-tree-compiler libelf-dev make
+            device-tree-compiler libelf-dev make \
+            rsync  # 新增同步工具确保文件完整性
 
-      - name: 创建 Makefile 入口脚本
+      - name: 创建核心构建脚本（build_kernel.mk）
         run: |
+          # 直接生成包含正确 Tab 分隔符的 Makefile
           cat > android_kernel_oneplus_sm8150/build_kernel.mk << 'EOF'
-          # 定义核心变量（必须在 include kernel.mk 之前）
-          BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb  # 关键修复：提前定义此变量
+          # 基础配置变量（必须在 include 前定义）
+          BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb
           TARGET_KERNEL_CONFIG := vendor/sm8150-perf_defconfig
           TARGET_KERNEL_CLANG_COMPILE := true
           KERNEL_ARCH := arm64
@@ -38,38 +46,67 @@ jobs:
           KERNEL_OUT := $(CURDIR)/kernel_out
           KERNEL_SRC := $(CURDIR)
           TARGET_PREBUILT_KERNEL := $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/$(BOARD_KERNEL_IMAGE_NAME)
+          TARGET_NO_KERNEL := false  # 强制从源码编译
 
-          # 引入官方 kernel.mk（此时已定义 BOARD_KERNEL_IMAGE_NAME）
+          # 引入 LineageOS 官方内核构建逻辑
           include ../vendor/lineage/build/tasks/kernel.mk
 
-          # 生成配置目标
+          # 生成配置目标（命令前必须是 Tab 键）
           generate_config:
-              mkdir -p $(KERNEL_OUT)
-              $(call make-kernel-config,$(KERNEL_OUT),$(TARGET_KERNEL_CONFIG))
+          	@echo "=== 清除旧构建目录 ==="
+          	rm -rf $(KERNEL_OUT)
+          	mkdir -p $(KERNEL_OUT)
+          	@echo "=== 生成内核配置 ==="
+          	$(call make-kernel-config,$(KERNEL_OUT),$(TARGET_KERNEL_CONFIG))
+          	@echo "=== 配置文件生成路径: $(KERNEL_OUT)/.config ==="
               
           # 编译内核目标
           build_image: generate_config
-              $(call make-kernel-target,$(BOARD_KERNEL_IMAGE_NAME))
+          	@echo "=== 开始编译内核 ==="
+          	$(call make-kernel-target,$(BOARD_KERNEL_IMAGE_NAME))
+          	@echo "=== 内核编译完成，产物路径: $(TARGET_PREBUILT_KERNEL) ==="
           EOF
+          # 最终验证 Tab 分隔符（双重保障）
+          sed -i 's/^  /\t/' android_kernel_oneplus_sm8150/build_kernel.mk
+          # 显示 Makefile 内容确认（调试用）
+          cat android_kernel_oneplus_sm8150/build_kernel.mk
 
-      - name: 生成内核配置（基于 kernel.mk）
+      - name: 生成内核配置文件
         run: |
           cd android_kernel_oneplus_sm8150
+          # 显示环境变量（调试用）
+          echo "KERNEL_SRC: $(KERNEL_SRC)"
+          echo "TARGET_KERNEL_CONFIG: $(TARGET_KERNEL_CONFIG)"
+          # 执行配置生成
           make -f build_kernel.mk generate_config
+          # 验证配置文件是否生成
           if [ ! -f "kernel_out/.config" ]; then
-            echo "配置生成失败！"
+            echo "ERROR: 配置文件生成失败！"
             exit 1
+          else
+            echo "SUCCESS: 配置文件生成成功"
+            ls -la kernel_out/.config
           fi
 
-      - name: 编译内核
+      - name: 编译内核镜像
         run: |
           cd android_kernel_oneplus_sm8150
+          # 编译内核
           make -f build_kernel.mk build_image
+          # 验证编译产物
+          if [ ! -f "$(TARGET_PREBUILT_KERNEL)" ]; then
+            echo "ERROR: 内核镜像编译失败！"
+            exit 1
+          else
+            echo "SUCCESS: 内核镜像编译成功"
+            ls -la $(TARGET_PREBUILT_KERNEL)
+          fi
 
-      - name: 上传编译产物
+      - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
-          name: lineage-kernel-output
+          name: lineageos-22.2-kernel-sm8150
           path: |
             android_kernel_oneplus_sm8150/kernel_out/arch/arm64/boot/Image.gz-dtb
             android_kernel_oneplus_sm8150/kernel_out/.config
+          retention-days: 7  # 产物保留7天
