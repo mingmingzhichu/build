@@ -1,101 +1,79 @@
-name: 最终修复版 LineageOS 内核构建
-on: 
-  workflow_dispatch:
+name: Build LineageOS 22.2 Kernel for hotdogb
+
+on:
+  workflow_dispatch:  # 手动触发构建
+  push:
+    branches:
+      - main  # 当 main 分支更新时自动触发
+
+env:
+  DEVICE: hotdogb
+  KERNEL_REPO: "https://github.com/LineageOS/android_kernel_oneplus_sm8150"  # 替换为实际内核仓库
+  KERNEL_BRANCH: "lineage-22.2"  # 内核分支
+  DEVICE_TREE_REPO: "https://github.com/LineageOS/android_device_oneplus_hotdogb"  # 设备树仓库
+  DEVICE_TREE_BRANCH: "lineage-22.2"
+  TOOLCHAIN_REPO: "https://github.com/kdrag0n/proton-clang"  # Clang 工具链
+  TOOLCHAIN_BRANCH: "main"
+  ARCH: arm64
+  CROSS_COMPILE: "aarch64-linux-gnu-"
+  CC: "clang"
 
 jobs:
-  build_kernel:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: 检查代码与初始化目录
-        run: |
-          git clone https://github.com/LineageOS/android_kernel_oneplus_sm8150.git -b lineage-22.2 --depth=1
-          git clone https://github.com/LineageOS/android_vendor_lineage.git vendor/lineage --depth=1
-          # 提前创建输出目录并赋权（确保路径可写）
-          mkdir -p android_kernel_oneplus_sm8150/kernel_out
-          chmod -R 777 android_kernel_oneplus_sm8150/kernel_out
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - name: 安装依赖与工具链
+      # 设置 Clang 工具链
+      - name: Setup Toolchain
         run: |
-          git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang --depth=1
+          git clone --depth 1 -b $TOOLCHAIN_BRANCH $TOOLCHAIN_REPO
+          export PATH="$PATH:$(pwd)/proton-clang/bin"
+          echo "PATH=$PATH" >> $GITHUB_ENV
+
+      # 安装依赖
+      - name: Install Dependencies
+        run: |
           sudo apt-get update
-          sudo apt-get install -y \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            binutils-aarch64-linux-gnu bc bison flex \
-            libncurses5-dev libssl-dev python3-pip \
-            device-tree-compiler libelf-dev make rsync
+          sudo apt-get install -y git-lfs python3 python3-distutils cpio bc bison flex libssl-dev
 
-      - name: 生成正确的 build_kernel.mk（强制路径+禁用预编译）
+      # 克隆内核源码
+      - name: Clone Kernel Source
         run: |
-          cat > android_kernel_oneplus_sm8150/build_kernel.mk << 'EOF'
-          # 核心变量（彻底覆盖默认路径）
-          BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb
-          TARGET_KERNEL_CONFIG := vendor/sm8150-perf_defconfig
-          TARGET_KERNEL_CLANG_COMPILE := true
-          KERNEL_ARCH := arm64
-          KERNEL_CLANG_TRIPLE := aarch64-linux-gnu-
-          TARGET_KERNEL_CLANG_PATH := $(CURDIR)/../clang
-          CROSS_COMPILE := aarch64-linux-gnu-
-          
-          # 关键修复1：强制输出目录为当前目录下的 kernel_out（绝对路径写法）
-          KERNEL_OUT := $(CURDIR)/kernel_out
-          # 关键修复2：明确内核源码目录
-          KERNEL_SRC := $(CURDIR)
-          # 关键修复3：禁用预编译内核的所有相关变量
-          TARGET_NO_KERNEL := false
-          TARGET_PREBUILT_KERNEL := $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/$(BOARD_KERNEL_IMAGE_NAME)
-          KERNEL_DIR := $(KERNEL_SRC)  # 强制内核目录
-          AB_OTA_PARTITIONS += kernel  # 提示系统内核需编译
-          
-          # 引入官方构建逻辑前确保所有变量已定义
-          include ../vendor/lineage/build/tasks/kernel.mk
+          git clone --depth 1 -b $KERNEL_BRANCH $KERNEL_REPO kernel
+          git clone --depth 1 -b $DEVICE_TREE_BRANCH $DEVICE_TREE_REPO device
 
-          # 生成配置目标（强制使用定义的 KERNEL_OUT）
-          generate_config:
-          	@echo "=== 清除旧构建目录: $(KERNEL_OUT) ==="
-          	rm -rf $(KERNEL_OUT)
-          	mkdir -p $(KERNEL_OUT)
-          	@echo "=== 生成内核配置 ==="
-          	$(call make-kernel-config,$(KERNEL_OUT),$(TARGET_KERNEL_CONFIG))
-          	@echo "=== 配置文件路径: $(KERNEL_OUT)/.config ==="
-              
-          build_image: generate_config
-          	@echo "=== 开始编译内核 ==="
-          	$(call make-kernel-target,$(BOARD_KERNEL_IMAGE_NAME))
-          EOF
-          # 确保 Makefile 中命令行前是 Tab 键
-          sed -i 's/^  /\t/' android_kernel_oneplus_sm8150/build_kernel.mk
-
-      - name: 生成内核配置（强制环境变量）
+      # 生成内核配置
+      - name: Generate Kernel Config
         run: |
-          cd android_kernel_oneplus_sm8150
-          # 显式定义所有关键变量，防止被覆盖
-          export KERNEL_SRC=$(pwd)
-          export KERNEL_OUT=$(pwd)/kernel_out
-          export TARGET_KERNEL_CONFIG="vendor/sm8150-perf_defconfig"
-          export TARGET_NO_KERNEL=false
-          # 打印变量确认路径正确性
-          echo "KERNEL_SRC: $KERNEL_SRC"
-          echo "KERNEL_OUT: $KERNEL_OUT"
-          echo "TARGET_KERNEL_CONFIG: $TARGET_KERNEL_CONFIG"
-          # 执行配置生成（传递所有变量给 make）
-          make -f build_kernel.mk generate_config KERNEL_SRC=$KERNEL_SRC KERNEL_OUT=$KERNEL_OUT
-          # 验证配置文件
-          if [ ! -f "kernel_out/.config" ]; then
-            echo "ERROR: 配置文件生成失败！"
-            exit 1
-          else
-            echo "SUCCESS: 配置文件生成成功"
-          fi
+          cd kernel
+          make O=../kernel_build $DEVICE-defconfig
+          make O=../kernel_build menuconfig  # 可选：交互式配置
 
-      - name: 编译内核镜像
+      # 编译内核
+      - name: Compile Kernel
         run: |
-          cd android_kernel_oneplus_sm8150
-          export KERNEL_SRC=$(pwd)
-          export KERNEL_OUT=$(pwd)/kernel_out
-          make -f build_kernel.mk build_image KERNEL_SRC=$KERNEL_SRC KERNEL_OUT=$KERNEL_OUT
+          cd kernel
+          make -j$(nproc) O=../kernel_build \
+            ARCH=$ARCH \
+            CROSS_COMPILE=$CROSS_COMPILE \
+            CC=$CC
 
-      - name: 上传构建产物
-        uses: actions/upload-artifact@v4
+      # 打包产物
+      - name: Package Release
+        run: |
+          mkdir -p release
+          cp kernel/build/Image.gz-dtb release/
+          zip -r9 release/lineage22.2-hotdogb-kernel.zip release/
+
+      # 上传产物
+      - name: Upload Artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: lineage-kernel-sm8150
-          path: android_kernel_oneplus_sm8150/kernel_out/arch/arm64/boot/Image.gz-dtb
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./release/lineage22.2-hotdogb-kernel.zip
+          asset_name: lineage22.2-hotdogb-kernel.zip
+          asset_content_type: application/zip
