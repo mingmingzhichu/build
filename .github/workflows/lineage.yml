@@ -8,11 +8,11 @@ on:
 
 env:
   DEVICE: hotdogb
-  KERNEL_REPO: "https://github.com/LineageOS/android_kernel_oneplus_sm8150"  # 替换为实际内核仓库
+  KERNEL_REPO: "https://github.com/LineageOS/android_kernel_oneplus_hotdogb"  # 内核仓库
   KERNEL_BRANCH: "lineage-22.2"  # 内核分支
   DEVICE_TREE_REPO: "https://github.com/LineageOS/android_device_oneplus_hotdogb"  # 设备树仓库
   DEVICE_TREE_BRANCH: "lineage-22.2"
-  TOOLCHAIN_REPO: "https://github.com/kdrag0n/proton-clang"  # Clang 工具链
+  TOOLCHAIN_REPO: "https://github.com/kdrag0n/proton-clang"  # Clang工具链
   TOOLCHAIN_BRANCH: "main"
   ARCH: arm64
   CROSS_COMPILE: "aarch64-linux-gnu-"
@@ -25,49 +25,54 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 设置 Clang 工具链
+      # 1. 安装依赖（Ubuntu环境）
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git-lfs python3 python3-distutils cpio bc bison flex \
+            libssl-dev libelf-dev libncurses-dev zlib1g-dev \
+            device-tree-compiler bc lzop
+
+      # 2. 设置Clang工具链
       - name: Setup Toolchain
         run: |
           git clone --depth 1 -b $TOOLCHAIN_BRANCH $TOOLCHAIN_REPO
           export PATH="$PATH:$(pwd)/proton-clang/bin"
           echo "PATH=$PATH" >> $GITHUB_ENV
 
-      # 安装依赖
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git-lfs python3 python3-distutils cpio bc bison flex libssl-dev
-
-      # 克隆内核源码
-      - name: Clone Kernel Source
+      # 3. 克隆内核和设备树源码
+      - name: Clone Sources
         run: |
           git clone --depth 1 -b $KERNEL_BRANCH $KERNEL_REPO kernel
           git clone --depth 1 -b $DEVICE_TREE_BRANCH $DEVICE_TREE_REPO device
 
-      # 生成内核配置
-      - name: Generate Kernel Config
+      # 4. 生成内核配置
+      - name: Generate Config
         run: |
           cd kernel
-          make O=../kernel_build $DEVICE-defconfig
-          make O=../kernel_build menuconfig  # 可选：交互式配置
+          # 使用设备默认配置初始化
+          make O=../kernel-build $DEVICE-defconfig
+          # 可选：交互式配置
+          # make O=../kernel-build menuconfig
 
-      # 编译内核
+      # 5. 编译内核
       - name: Compile Kernel
         run: |
           cd kernel
-          make -j$(nproc) O=../kernel_build \
+          make -j$(nproc) O=../kernel-build \
             ARCH=$ARCH \
             CROSS_COMPILE=$CROSS_COMPILE \
             CC=$CC
 
-      # 打包产物
+      # 6. 打包产物
       - name: Package Release
         run: |
           mkdir -p release
-          cp kernel/build/Image.gz-dtb release/
+          cp kernel-build/arch/arm64/boot/Image.gz-dtb release/kernel.img
           zip -r9 release/lineage22.2-hotdogb-kernel.zip release/
 
-      # 上传产物
+      # 7. 上传编译产物到GitHub Release
       - name: Upload Artifact
         uses: actions/upload-release-asset@v1
         env:
