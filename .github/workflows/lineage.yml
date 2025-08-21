@@ -1,4 +1,4 @@
-name: 修复版 LineageOS 内核构建工作流
+name: 最终修复版 LineageOS 内核构建
 on: 
   workflow_dispatch:
 
@@ -6,15 +6,15 @@ jobs:
   build_kernel:
     runs-on: ubuntu-latest
     steps:
-      - name: 检查代码仓库
+      - name: 检查代码与初始化目录
         run: |
           git clone https://github.com/LineageOS/android_kernel_oneplus_sm8150.git -b lineage-22.2 --depth=1
           git clone https://github.com/LineageOS/android_vendor_lineage.git vendor/lineage --depth=1
-          # 创建内核输出目录（解决权限问题）
+          # 提前创建输出目录并赋权（确保路径可写）
           mkdir -p android_kernel_oneplus_sm8150/kernel_out
-          chmod 777 android_kernel_oneplus_sm8150/kernel_out
+          chmod -R 777 android_kernel_oneplus_sm8150/kernel_out
 
-      - name: 安装工具链与依赖
+      - name: 安装依赖与工具链
         run: |
           git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang --depth=1
           sudo apt-get update
@@ -24,10 +24,10 @@ jobs:
             libncurses5-dev libssl-dev python3-pip \
             device-tree-compiler libelf-dev make rsync
 
-      - name: 创建正确的 build_kernel.mk
+      - name: 生成正确的 build_kernel.mk（强制路径+禁用预编译）
         run: |
           cat > android_kernel_oneplus_sm8150/build_kernel.mk << 'EOF'
-          # 核心变量定义（确保路径正确）
+          # 核心变量（彻底覆盖默认路径）
           BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb
           TARGET_KERNEL_CONFIG := vendor/sm8150-perf_defconfig
           TARGET_KERNEL_CLANG_COMPILE := true
@@ -35,20 +35,23 @@ jobs:
           KERNEL_CLANG_TRIPLE := aarch64-linux-gnu-
           TARGET_KERNEL_CLANG_PATH := $(CURDIR)/../clang
           CROSS_COMPILE := aarch64-linux-gnu-
-          # 使用相对路径（避免绝对路径权限问题）
+          
+          # 关键修复1：强制输出目录为当前目录下的 kernel_out（绝对路径写法）
           KERNEL_OUT := $(CURDIR)/kernel_out
+          # 关键修复2：明确内核源码目录
           KERNEL_SRC := $(CURDIR)
-          TARGET_PREBUILT_KERNEL := $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/$(BOARD_KERNEL_IMAGE_NAME)
-          # 关键：禁用预编译内核检测
+          # 关键修复3：禁用预编译内核的所有相关变量
           TARGET_NO_KERNEL := false
-          # 强制内核源码路径（解决误判问题）
-          KERNEL_DIR := $(KERNEL_SRC)
-
+          TARGET_PREBUILT_KERNEL := $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/$(BOARD_KERNEL_IMAGE_NAME)
+          KERNEL_DIR := $(KERNEL_SRC)  # 强制内核目录
+          AB_OTA_PARTITIONS += kernel  # 提示系统内核需编译
+          
+          # 引入官方构建逻辑前确保所有变量已定义
           include ../vendor/lineage/build/tasks/kernel.mk
 
-          # 生成配置目标（Tab 分隔符+相对路径）
+          # 生成配置目标（强制使用定义的 KERNEL_OUT）
           generate_config:
-          	@echo "=== 清除旧构建目录 ==="
+          	@echo "=== 清除旧构建目录: $(KERNEL_OUT) ==="
           	rm -rf $(KERNEL_OUT)
           	mkdir -p $(KERNEL_OUT)
           	@echo "=== 生成内核配置 ==="
@@ -59,20 +62,23 @@ jobs:
           	@echo "=== 开始编译内核 ==="
           	$(call make-kernel-target,$(BOARD_KERNEL_IMAGE_NAME))
           EOF
-          # 确保命令行前是 Tab 而非空格
+          # 确保 Makefile 中命令行前是 Tab 键
           sed -i 's/^  /\t/' android_kernel_oneplus_sm8150/build_kernel.mk
 
-      - name: 生成内核配置（带环境变量传递）
+      - name: 生成内核配置（强制环境变量）
         run: |
           cd android_kernel_oneplus_sm8150
-          # 显式定义环境变量并传递给 make
+          # 显式定义所有关键变量，防止被覆盖
           export KERNEL_SRC=$(pwd)
+          export KERNEL_OUT=$(pwd)/kernel_out
           export TARGET_KERNEL_CONFIG="vendor/sm8150-perf_defconfig"
-          # 打印变量确认
+          export TARGET_NO_KERNEL=false
+          # 打印变量确认路径正确性
           echo "KERNEL_SRC: $KERNEL_SRC"
+          echo "KERNEL_OUT: $KERNEL_OUT"
           echo "TARGET_KERNEL_CONFIG: $TARGET_KERNEL_CONFIG"
-          # 执行配置生成（传递环境变量）
-          make -f build_kernel.mk generate_config
+          # 执行配置生成（传递所有变量给 make）
+          make -f build_kernel.mk generate_config KERNEL_SRC=$KERNEL_SRC KERNEL_OUT=$KERNEL_OUT
           # 验证配置文件
           if [ ! -f "kernel_out/.config" ]; then
             echo "ERROR: 配置文件生成失败！"
@@ -81,13 +87,14 @@ jobs:
             echo "SUCCESS: 配置文件生成成功"
           fi
 
-      - name: 编译内核
+      - name: 编译内核镜像
         run: |
           cd android_kernel_oneplus_sm8150
           export KERNEL_SRC=$(pwd)
-          make -f build_kernel.mk build_image
+          export KERNEL_OUT=$(pwd)/kernel_out
+          make -f build_kernel.mk build_image KERNEL_SRC=$KERNEL_SRC KERNEL_OUT=$KERNEL_OUT
 
-      - name: 上传产物
+      - name: 上传构建产物
         uses: actions/upload-artifact@v4
         with:
           name: lineage-kernel-sm8150
