@@ -26,27 +26,28 @@ jobs:
 
       - name: 创建 Makefile 入口脚本
         run: |
-          # 创建临时 Makefile 用于调用 kernel.mk 逻辑
           cat > android_kernel_oneplus_sm8150/build_kernel.mk << 'EOF'
-          include ../vendor/lineage/build/tasks/kernel.mk
-
-          # 定义必要变量
+          # 定义核心变量（必须在 include kernel.mk 之前）
+          BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb  # 关键修复：提前定义此变量
           TARGET_KERNEL_CONFIG := vendor/sm8150-perf_defconfig
           TARGET_KERNEL_CLANG_COMPILE := true
           KERNEL_ARCH := arm64
           KERNEL_CLANG_TRIPLE := aarch64-linux-gnu-
           TARGET_KERNEL_CLANG_PATH := $(CURDIR)/../clang
           CROSS_COMPILE := aarch64-linux-gnu-
-          BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb
           KERNEL_OUT := $(CURDIR)/kernel_out
           KERNEL_SRC := $(CURDIR)
+          TARGET_PREBUILT_KERNEL := $(KERNEL_OUT)/arch/$(KERNEL_ARCH)/boot/$(BOARD_KERNEL_IMAGE_NAME)
 
-          # 自定义目标：生成配置
+          # 引入官方 kernel.mk（此时已定义 BOARD_KERNEL_IMAGE_NAME）
+          include ../vendor/lineage/build/tasks/kernel.mk
+
+          # 生成配置目标
           generate_config:
               mkdir -p $(KERNEL_OUT)
               $(call make-kernel-config,$(KERNEL_OUT),$(TARGET_KERNEL_CONFIG))
               
-          # 自定义目标：编译内核
+          # 编译内核目标
           build_image: generate_config
               $(call make-kernel-target,$(BOARD_KERNEL_IMAGE_NAME))
           EOF
@@ -54,9 +55,7 @@ jobs:
       - name: 生成内核配置（基于 kernel.mk）
         run: |
           cd android_kernel_oneplus_sm8150
-          # 使用 Make 命令执行，而非直接在 Bash 中 source
           make -f build_kernel.mk generate_config
-          # 验证配置文件
           if [ ! -f "kernel_out/.config" ]; then
             echo "配置生成失败！"
             exit 1
