@@ -1,4 +1,4 @@
-name: Build LineageOS 22.2 Kernel with kernel.mk
+name: Build LineageOS 22.2 Kernel with kernel.mk (Fixed)
 on: 
   workflow_dispatch:
 
@@ -8,9 +8,7 @@ jobs:
     steps:
       - name: 检查基础代码
         run: |
-          # 克隆内核源码
           git clone https://github.com/LineageOS/android_kernel_oneplus_sm8150.git -b lineage-22.2 --depth=1
-          # 克隆 LineageOS  vendor 仓库（获取 kernel.mk）
           git clone https://github.com/LineageOS/android_vendor_lineage.git vendor/lineage --depth=1
 
       - name: 克隆 Clang 工具链
@@ -20,41 +18,46 @@ jobs:
       - name: 配置构建环境
         run: |
           sudo apt-get update
-          # 安装必要依赖（参考 kernel.mk 依赖需求）
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             binutils-aarch64-linux-gnu bc bison flex \
             libncurses5-dev libssl-dev python3-pip \
-            device-tree-compiler libelf-dev
+            device-tree-compiler libelf-dev make
 
-      - name: 定义内核配置变量
+      - name: 创建 Makefile 入口脚本
         run: |
-          cd android_kernel_oneplus_sm8150
-          # 创建临时 BoardConfig 片段（符合 kernel.mk 规范）
-          cat > BoardConfig.kernel.mk << EOF
+          # 创建临时 Makefile 用于调用 kernel.mk 逻辑
+          cat > android_kernel_oneplus_sm8150/build_kernel.mk << 'EOF'
+          include ../vendor/lineage/build/tasks/kernel.mk
+
+          # 定义必要变量
           TARGET_KERNEL_CONFIG := vendor/sm8150-perf_defconfig
           TARGET_KERNEL_CLANG_COMPILE := true
           KERNEL_ARCH := arm64
           KERNEL_CLANG_TRIPLE := aarch64-linux-gnu-
-          TARGET_KERNEL_CLANG_PATH := $(pwd)/../clang
+          TARGET_KERNEL_CLANG_PATH := $(CURDIR)/../clang
           CROSS_COMPILE := aarch64-linux-gnu-
           BOARD_KERNEL_IMAGE_NAME := Image.gz-dtb
-          # 可选：添加自定义配置覆盖
-          KERNEL_CONFIG_OVERRIDE := CONFIG_DEBUG_INFO=y CONFIG_SCHED_DEBUG=y
+          KERNEL_OUT := $(CURDIR)/kernel_out
+          KERNEL_SRC := $(CURDIR)
+
+          # 自定义目标：生成配置
+          generate_config:
+              mkdir -p $(KERNEL_OUT)
+              $(call make-kernel-config,$(KERNEL_OUT),$(TARGET_KERNEL_CONFIG))
+              
+          # 自定义目标：编译内核
+          build_image: generate_config
+              $(call make-kernel-target,$(BOARD_KERNEL_IMAGE_NAME))
           EOF
 
       - name: 生成内核配置（基于 kernel.mk）
         run: |
           cd android_kernel_oneplus_sm8150
-          # 加载 kernel.mk 脚本
-          source ../vendor/lineage/build/tasks/kernel.mk
-          # 创建输出目录
-          export KERNEL_OUT=$(pwd)/kernel_out
-          mkdir -p \$KERNEL_OUT
-          # 调用 kernel.mk 内置函数生成配置
-          $(call make-kernel-config,\$KERNEL_OUT,\$(TARGET_KERNEL_CONFIG))
+          # 使用 Make 命令执行，而非直接在 Bash 中 source
+          make -f build_kernel.mk generate_config
           # 验证配置文件
-          if [ ! -f "\$KERNEL_OUT/.config" ]; then
+          if [ ! -f "kernel_out/.config" ]; then
             echo "配置生成失败！"
             exit 1
           fi
@@ -62,12 +65,7 @@ jobs:
       - name: 编译内核
         run: |
           cd android_kernel_oneplus_sm8150
-          source ../vendor/lineage/build/tasks/kernel.mk
-          export KERNEL_OUT=$(pwd)/kernel_out
-          # 调用 kernel.mk 编译目标
-          $(call make-kernel-target,\$(BOARD_KERNEL_IMAGE_NAME))
-          # 编译 DTB（若需要）
-          $(call make-kernel-target,dtbs)
+          make -f build_kernel.mk build_image
 
       - name: 上传编译产物
         uses: actions/upload-artifact@v4
