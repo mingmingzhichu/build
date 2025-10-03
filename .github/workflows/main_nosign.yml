@@ -81,28 +81,29 @@ jobs:
           mv base-initramfs.cpio.gz final-initramfs.cpio.gz
         fi
 
-    - name: Pack boot.img (hotdogb DTB)
+    - name: Pack boot.img (hotdogb DTB auto-detect)
       working-directory: linux
       run: |
         git clone https://android.googlesource.com/platform/system/tools/mkbootimg
-        if make -C mkbootimg; then
-          MKBOOT="./mkbootimg/mkbootimg"
-        else
-          MKBOOT="python3 mkbootimg/mkbootimg.py"
-        fi
 
-        DTB_FILE="out/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb"
+        MKBOOT="python3 mkbootimg/mkbootimg.py"
+
+        # 自动检测 dtb 文件
+        DTB_FILE=$(ls out/arch/arm64/boot/dts/qcom/*hotdogb*.dtb 2>/dev/null | head -n1)
+
+        if [ -z "$DTB_FILE" ]; then
+          echo "❌ 没有找到 hotdogb dtb，列出目录内容："
+          ls -lh out/arch/arm64/boot/dts/qcom/ || true
+          exit 1
+        fi
 
         if [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
           echo "Using built Image.gz-dtb"
           KERNEL_IMG="out/arch/arm64/boot/Image.gz-dtb"
-        elif [ -f "$DTB_FILE" ]; then
-          echo "Manually concatenating Image.gz + DTB"
+        else
+          echo "Manually concatenating Image.gz + $DTB_FILE"
           cat out/arch/arm64/boot/Image.gz "$DTB_FILE" > Image.gz-dtb
           KERNEL_IMG="Image.gz-dtb"
-        else
-          echo "Error: hotdogb DTB not found"
-          exit 1
         fi
 
         CMDLINE="console=ttyMSM0,115200n8 earlycon=msm_geni_serial,0xc90000 androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.park=3 lpm_levels.sleep_disabled=1 cma=32M@0-0xffffffff androidboot.configfs=true androidboot.usbcontroller=a600000.dwc3 loop.max_part=7 androidboot.selinux=permissive"
@@ -123,7 +124,6 @@ jobs:
           linux/boot.img
           linux/out/arch/arm64/boot/Image.gz
           linux/out/arch/arm64/boot/Image.gz-dtb
-          linux/out/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb
           linux/out/arch/arm64/boot/dts/qcom/*.dtb
           linux/out/.config
         retention-days: 30
@@ -135,7 +135,7 @@ jobs:
         echo "=== Build Summary ==="
         du -h boot.img || echo "boot.img missing"
         du -h out/arch/arm64/boot/Image.gz || true
-        du -h out/arch/arm64/boot/*.dtb | head -n 10 || true
+        ls -lh out/arch/arm64/boot/dts/qcom/ | head -n 20 || true
 
     - name: Cleanup
       if: always()
