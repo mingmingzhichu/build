@@ -5,85 +5,115 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Ubuntu 22.04
+    runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y git build-essential bc bison flex libssl-dev make gcc-aarch64-linux-gnu device-tree-compiler python3-pip cpio gzip liblz4-tool busybox-static
+        sudo apt-get install -y \
+          git build-essential bc bison flex libssl-dev \
+          gcc-aarch64-linux-gnu device-tree-compiler \
+          python3-pip cpio gzip liblz4-tool busybox-static
 
     - name: Clone kernel source
       run: |
         git clone https://gitlab.com/sm8150-mainline/linux.git -b sm8150/6.14
-        cd linux
 
     - name: Set up environment
       run: |
-        cd linux
-        export ARCH=arm64
-        export CROSS_COMPILE=aarch64-linux-gnu-
         echo "ARCH=arm64" >> $GITHUB_ENV
         echo "CROSS_COMPILE=aarch64-linux-gnu-" >> $GITHUB_ENV
 
-    - name: Locate and configure kernel (using sm8150.config + hardening)
+    - name: Configure kernel (sm8150 + hardening)
+      working-directory: linux
       run: |
-        cd linux
-        # Find sm8150.config
-        find . -name "sm8150.config" -type f || echo "sm8150.config not found; check branch"
-        make O=out defconfig sm8150.config
-        # Merge hardening.config for security
-        if [ -f "arch/arm64/configs/hardening.config" ]; then
-          scripts/kconfig/merge_config.sh out/.config arch/arm64/configs/hardening.config
+        mkdir -p out
+
+        if [ -f "arch/arm64/configs/sm8150_defconfig" ]; then
+          echo "Using sm8150_defconfig"
+          make O=out sm8150_defconfig
+        elif [ -f "arch/arm64/configs/sm8150.config" ]; then
+          echo "Using sm8150.config with defconfig merge"
+          make O=out defconfig
+          scripts/kconfig/merge_config.sh -O out arch/arm64/configs/sm8150.config
           make O=out olddefconfig
-          echo "Hardening config merged successfully"
         else
-          echo "hardening.config not found; skipping"
+          echo "No sm8150 config found; fallback to defconfig"
+          make O=out defconfig
         fi
-        # Log config summary
+
+        if [ -f "arch/arm64/configs/hardening.config" ]; then
+          echo "Merging hardening.config"
+          scripts/kconfig/merge_config.sh -O out out/.config arch/arm64/configs/hardening.config
+          make O=out olddefconfig
+        fi
+
         grep -E "CONFIG_ARM64_PTR_AUTH|CONFIG_SHADOW_CALL_STACK" out/.config || echo "No hardening options found"
 
     - name: Build kernel
-      run: |
-        cd linux
-        make O=out -j$(nproc) Image.gz dtbs modules
+      working-directory: linux
+      run: make O=out -j$(nproc) Image.gz dtbs modules
 
     - name: Install modules
-      run: |
-        cd linux
-        make O=out modules_install INSTALL_MOD_PATH=modules_dir INSTALL_MOD_STRIP=1
+      working-directory: linux
+      run: make O=out modules_install INSTALL_MOD_PATH=modules_dir INSTALL_MOD_STRIP=1
 
-    - name: Create initramfs (basic)
+    - name: Create initramfs
+      working-directory: linux
       run: |
-        cd linux
         mkdir -p initramfs/{bin,sbin,proc,sys,dev,etc}
         cp /bin/busybox initramfs/bin/
         cd initramfs
-        ./bin/busybox --install -s /bin
+        ./bin/busybox --install -s .
         echo '/bin/sh' > etc/inittab
         find . | cpio -o -H newc | gzip > ../base-initramfs.cpio.gz
         cd ..
-        # Add modules
-        (cd modules_dir && find . | cpio -o -H newc | gzip -9 > modules.cpio.gz) || echo "No modules to add"
-        cat base-initramfs.cpio.gz modules.cpio.gz > final-initramfs.cpio.gz
 
-    - name: Pack boot.img (using hotdogb DTB)
+        if [ -d modules_dir ]; then
+          echo "Adding kernel modules to initramfs"
+          (cd modules_dir && find . | cpio -o -H newc | gzip -9 > modules.cpio.gz)
+          cat base-initramfs.cpio.gz modules.cpio.gz > final-initramfs.cpio.gz
+        else
+          mv base-initramfs.cpio.gz final-initramfs.cpio.gz
+        fi
+
+    - name: Pack boot.img (hotdogb DTB)
+      working-directory: linux
       run: |
-        cd linux
-        # Clone mkbootimg
         git clone https://android.googlesource.com/platform/system/tools/mkbootimg
-        cd mkbootimg
-        make
-        cd ..
-        # Use specific hotdogb DTB
+        if make -C mkbootimg; then
+          MKBOOT="./mkbootimg/mkbootimg"
+        else
+          MKBOOT="python3 mkbootimg/mkbootimg.py"
+        fi
+
         DTB_FILE="out/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb"
-        if [ ! -f "$DTB_FILE" ]; then
-          echo "hotdogb DTB not found; check if DTS compiled"
+
+        if [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
+          echo "Using built Image.gz-dtb"
+          KERNEL_IMG="out/arch/arm64/boot/Image.gz-dtb"
+        elif [ -f "$DTB_FILE" ]; then
+          echo "Manually concatenating Image.gz + DTB"
+          cat out/arch/arm64/boot/Image.gz "$DTB_FILE" > Image.gz-dtb
+          KERNEL_IMG="Image.gz-dtb"
+        else
+          echo "Error: hotdogb DTB not found"
           exit 1
         fi
-        cat out/arch/arm64/boot/Image.gz "$DTB_FILE" > Image.gz-dtb
+
         CMDLINE="console=ttyMSM0,115200n8 earlycon=msm_geni_serial,0xc90000 androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.park=3 lpm_levels.sleep_disabled=1 cma=32M@0-0xffffffff androidboot.configfs=true androidboot.usbcontroller=a600000.dwc3 loop.max_part=7 androidboot.selinux=permissive"
-        ./mkbootimg/mkbootimg --kernel Image.gz-dtb --ramdisk final-initramfs.cpio.gz --cmdline "$CMDLINE" --base 0x80000000 --pagesize 4096 --kernel_offset 0x00008000 --ramdisk_offset 0x01000000 --tags_offset 0x00000100 --output boot.img
+
+        $MKBOOT --kernel "$KERNEL_IMG" --ramdisk final-initramfs.cpio.gz \
+          --cmdline "$CMDLINE" \
+          --base 0x80000000 --pagesize 4096 \
+          --kernel_offset 0x00008000 \
+          --ramdisk_offset 0x01000000 \
+          --tags_offset 0x00000100 \
+          --output boot.img
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
@@ -92,12 +122,21 @@ jobs:
         path: |
           linux/boot.img
           linux/out/arch/arm64/boot/Image.gz
+          linux/out/arch/arm64/boot/Image.gz-dtb
           linux/out/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb
-          linux/out/arch/arm64/boot/dts/qcom/*.dtb  # Include others for reference
-          linux/out/.config  # Include config for reference
+          linux/out/arch/arm64/boot/dts/qcom/*.dtb
+          linux/out/.config
         retention-days: 30
+        if-no-files-found: ignore
+
+    - name: Show build summary
+      working-directory: linux
+      run: |
+        echo "=== Build Summary ==="
+        du -h boot.img || echo "boot.img missing"
+        du -h out/arch/arm64/boot/Image.gz || true
+        du -h out/arch/arm64/boot/*.dtb | head -n 10 || true
 
     - name: Cleanup
       if: always()
-      run: |
-        rm -rf linux
+      run: rm -rf linux
