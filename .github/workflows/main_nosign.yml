@@ -32,28 +32,8 @@ jobs:
       working-directory: linux
       run: |
         mkdir -p out
-
-        if [ -f "arch/arm64/configs/sm8150_defconfig" ]; then
-          echo "Using sm8150_defconfig"
-          make O=out sm8150_defconfig
-        elif [ -f "arch/arm64/configs/sm8150.config" ]; then
-          echo "Using sm8150.config with defconfig merge"
-          make O=out defconfig
-          scripts/kconfig/merge_config.sh -O out arch/arm64/configs/sm8150.config
-          make O=out olddefconfig
-        else
-          echo "No sm8150 config found; fallback to defconfig"
-          make O=out defconfig
-        fi
-
-        if [ -f "arch/arm64/configs/hardening.config" ]; then
-          echo "Merging hardening.config"
-          scripts/kconfig/merge_config.sh -O out out/.config arch/arm64/configs/hardening.config
-          make O=out olddefconfig
-        fi
-
-        grep -E "CONFIG_ARM64_PTR_AUTH|CONFIG_SHADOW_CALL_STACK" out/.config || echo "No hardening options found"
-
+        make O=out defconfig sm8150.config
+        
     - name: Build kernel
       working-directory: linux
       run: make O=out -j$(nproc) Image.gz dtbs modules
