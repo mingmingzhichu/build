@@ -1,4 +1,4 @@
-name: Compile SM8150 Mainline Kernel
+name: Compile SM8150 Mainline Kernel (hotdogb)
 
 on:
   workflow_dispatch:  # Only manual trigger
@@ -67,7 +67,7 @@ jobs:
         (cd modules_dir && find . | cpio -o -H newc | gzip -9 > modules.cpio.gz) || echo "No modules to add"
         cat base-initramfs.cpio.gz modules.cpio.gz > final-initramfs.cpio.gz
 
-    - name: Pack boot.img
+    - name: Pack boot.img (using hotdogb DTB)
       run: |
         cd linux
         # Clone mkbootimg
@@ -75,8 +75,12 @@ jobs:
         cd mkbootimg
         make
         cd ..
-        # Use generic SM8150 DTB; replace with device-specific if available
-        DTB_FILE=$(find out/arch/arm64/boot/dts/qcom/ -name "*sm8150*.dtb" | head -1) || DTB_FILE="out/arch/arm64/boot/dts/qcom/sm8150.dtb"
+        # Use specific hotdogb DTB
+        DTB_FILE="out/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb"
+        if [ ! -f "$DTB_FILE" ]; then
+          echo "hotdogb DTB not found; check if DTS compiled"
+          exit 1
+        fi
         cat out/arch/arm64/boot/Image.gz "$DTB_FILE" > Image.gz-dtb
         CMDLINE="console=ttyMSM0,115200n8 earlycon=msm_geni_serial,0xc90000 androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.park=3 lpm_levels.sleep_disabled=1 cma=32M@0-0xffffffff androidboot.configfs=true androidboot.usbcontroller=a600000.dwc3 loop.max_part=7 androidboot.selinux=permissive"
         ./mkbootimg/mkbootimg --kernel Image.gz-dtb --ramdisk final-initramfs.cpio.gz --cmdline "$CMDLINE" --base 0x80000000 --pagesize 4096 --kernel_offset 0x00008000 --ramdisk_offset 0x01000000 --tags_offset 0x00000100 --output boot.img
@@ -84,11 +88,12 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: kernel-artifacts
+        name: kernel-artifacts-hotdogb
         path: |
           linux/boot.img
           linux/out/arch/arm64/boot/Image.gz
-          linux/out/arch/arm64/boot/dts/qcom/*.dtb
+          linux/out/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb
+          linux/out/arch/arm64/boot/dts/qcom/*.dtb  # Include others for reference
           linux/out/.config  # Include config for reference
         retention-days: 30
 
