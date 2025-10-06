@@ -88,12 +88,18 @@ jobs:
 
         CMDLINE="console=ttyMSM0,115200n8 earlycon=msm_geni_serial,0xc90000 androidboot.hardware=qcom msm_rtb.filter=0x237 ehci-hcd.park=3 lpm_levels.sleep_disabled=1 cma=32M@0-0xffffffff androidboot.configfs=true androidboot.usbcontroller=a600000.dwc3 loop.max_part=7 androidboot.selinux=permissive"
 
-        $MKBOOT --kernel "$KERNEL_IMG" --ramdisk final-initramfs.cpio.gz \
-          --cmdline "$CMDLINE" \
-          --base 0x80000000 --pagesize 4096 \
+        $MKBOOTIMG --kernel "$KERNEL_IMG" --ramdisk final-initramfs.cpio.gz \
+          --cmdline "console=ttyMSM0,115200n8 earlycon=msm_geni_serial,0xa90000 androidboot.hardware=qcom androidboot.usbcontroller=a600000.dwc3 root=/dev/disk/by-partlabel/rootfs rootwait rw init=/sbin/init" \
+          --base 0x00000000 \
+          --pagesize 4096 \
           --kernel_offset 0x00008000 \
           --ramdisk_offset 0x01000000 \
           --tags_offset 0x00000100 \
+          --os_version 16.0.0 \
+          --os_patch_level 2025-09 \
+          --header_version 2 \
+          --ramdisk_format lz4_legacy \
+          --hash sha256 \
           --output boot.img
 
     - name: Upload artifacts
