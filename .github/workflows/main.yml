@@ -1,6 +1,8 @@
 name: Build kernels
 
 on:
+  schedule:
+    - cron: '0 0 * * 1'  # 可替换为上面的示例表达式
   workflow_dispatch:
 
 jobs:
