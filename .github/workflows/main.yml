@@ -49,8 +49,8 @@ jobs:
 
           # 进入内核目录并应用补丁
           cd kernel
-          axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/su.patch
-          patch -p1 < su.patch
+          axel https://github.com/SukiSU-Ultra/SukiSU_patch/blob/main/4.14/ksu_hooks_4.14.patch
+          patch -p1 < ksu_hooks_4.14.patch
 
           # 集成 KernelSU
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
