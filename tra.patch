@@ -1,160 +1,180 @@
---- a/fs/exec.c
-+++ b/fs/exec.c
-@@ -78,6 +78,10 @@
- #include <trace/hooks/sched.h>
- #endif
- 
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+#include <../drivers/kernelsu/ksu_trace.h>
-+#endif
-+
- EXPORT_TRACEPOINT_SYMBOL_GPL(task_rename);
- 
- static int bprm_creds_from_file(struct linux_binprm *bprm);
-@@ -2037,6 +2041,9 @@ static int do_execve(struct filename *filename,
- {
- 	struct user_arg_ptr argv = { .ptr.native = __argv };
- 	struct user_arg_ptr envp = { .ptr.native = __envp };
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+    trace_ksu_trace_execveat_hook((int *)AT_FDCWD, &filename, &argv, &envp, 0);
-+#endif
- 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
- }
- 
-@@ -2064,6 +2071,9 @@ static int compat_do_execve(struct filename *filename,
- 		.is_compat = true,
- 		.ptr.compat = __envp,
- 	};
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+    trace_ksu_trace_execveat_sucompat_hook((int *)AT_FDCWD, &filename, NULL, NULL, NULL); /* 32-bit su */
-+#endif
- 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
- }
---- a/fs/open.c
-+++ b/fs/open.c
-@@ -31,6 +31,9 @@
- #include <linux/ima.h>
- #include <linux/dnotify.h>
- #include <linux/compat.h>
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+#include <../drivers/kernelsu/ksu_trace.h>
-+#endif
- 
- #include "internal.h"
- 
-@@ -369,6 +372,9 @@ SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
- 	int res;
- 	unsigned int lookup_flags = LOOKUP_FOLLOW;
- 
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+	trace_ksu_trace_faccessat_hook(&dfd, &filename, &mode, NULL);
-+#endif
- 	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */
- 		return -EINVAL;
---- a/fs/read_write.c
-+++ b/fs/read_write.c
-@@ -25,6 +25,11 @@
- #include <linux/uaccess.h>
- #include <asm/unistd.h>
- 
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+#include <../drivers/kernelsu/ksu_trace.h>
-+#endif
-+
-+
- const struct file_operations generic_ro_fops = {
- 	.llseek		= generic_file_llseek,
- 	.read_iter	= generic_file_read_iter,
-@@ -575,6 +580,9 @@ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
- 
- 	if (f.file) {
- 		loff_t pos = file_pos_read(f.file);
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+		trace_ksu_trace_sys_read_hook(fd, &buf, &count);
-+#endif
- 		ret = vfs_read(f.file, buf, count, &pos);
- 		if (ret >= 0)
- 			file_pos_write(f.file, pos);
---- a/fs/stat.c
-+++ b/fs/stat.c
-@@ -24,6 +24,10 @@
- #include "internal.h"
- #include "mount.h"
- 
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+#include <../drivers/kernelsu/ksu_trace.h>
-+#endif
-+
- /**
-  * generic_fillattr - Fill in the basic attributes from the inode struct
-  * @mnt_userns:	user namespace of the mount the inode was found from
-@@ -408,6 +412,10 @@ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
- 	struct kstat stat;
- 	int error;
- 
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+	trace_ksu_trace_stat_hook(&dfd, &filename, &flag);
-+#endif
-+
- 	error = vfs_fstatat(dfd, filename, &stat, flag);
- 	if (error)
- 		return error;
-@@ -559,6 +567,10 @@ SYSCALL_DEFINE4(fstatat64, int, dfd, const char __user *, filename,
- 	struct kstat stat;
- 	int error;
- 
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+	trace_ksu_trace_stat_hook(&dfd, &filename, &flag); /* 32-bit su support */
-+#endif
-+
- 	error = vfs_fstatat(dfd, filename, &stat, flag);
- 	if (error)
- 		return error;
+From 98345832aea56695842622081cb0d2ff7963157d Mon Sep 17 00:00:00 2001
+From: ShirkNeko <109797057+ShirkNeko@users.noreply.github.com>
+Date: Thu, 6 Nov 2025 15:16:38 +0800
+Subject: [PATCH] scope_min_manual_hooks_v1.6 (compat for kernel_oneplus_sm8150 sixteen)
+
+drivers/input/input.c | 10 ++++++++++
+fs/exec.c             | 13 +++++++++++++
+fs/open.c             |  9 +++++++++
+fs/read_write.c       | 10 ++++++++++
+fs/stat.c             | 12 ++++++++++++
+kernel/reboot.c       |  9 +++++++++
+6 files changed, 63 insertions(+)
+
+diff --git a/drivers/input/input.c b/drivers/input/input.c
+index 8258f0a30..1daf4798b 100644
 --- a/drivers/input/input.c
 +++ b/drivers/input/input.c
-@@ -26,6 +26,10 @@
- #include "input-compat.h"
- #include "input-poller.h"
- 
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+#include <../../drivers/kernelsu/ksu_trace.h>
+@@ -446,6 +446,11 @@
++/* KSU manual hooks */
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++extern bool ksu_input_hook __read_mostly;
++extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);
 +#endif
-+
- MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
- MODULE_DESCRIPTION("Input core");
- MODULE_LICENSE("GPL");
-@@ -451,6 +455,10 @@ void input_event(struct input_dev *dev,
+
+ void input_event(struct input_dev *dev,
+                 unsigned int type, unsigned int code, int value)
  {
- 	unsigned long flags;
- 
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+    trace_ksu_trace_input_hook(&type, &code, &value);
+     unsigned long flags;
++
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++    if (unlikely(ksu_input_hook))
++        ksu_handle_input_handle_event(&type, &code, &value);
++#endif
+
+     if (is_event_supported(type, dev->evbit, EV_MAX)) {
+         spin_lock_irqsave(&dev->event_lock, flags);
+         input_handle_event(dev, type, code, value);
+         spin_unlock_irqrestore(&dev->event_lock, flags);
+     }
+ }
+diff --git a/fs/exec.c b/fs/exec.c
+index e90e89f29..e8ee803ad 100644
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -2108,6 +2108,13 @@
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++__attribute__((hot))
++extern int ksu_handle_execve_sucompat(int *fd, const char __user **filename_user,
++                void *__never_use_argv, void *__never_use_envp,
++                int *__never_use_flags);
 +#endif
 +
- 	if (is_event_supported(type, dev->evbit, EV_MAX)) {
- 
- 		spin_lock_irqsave(&dev->event_lock, flags);
---- a/drivers/tty/pty.c
-+++ b/drivers/tty/pty.c
-@@ -31,6 +31,10 @@
- #include <linux/compat.h>
- #include "tty.h"
- 
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+#include <../../drivers/kernelsu/ksu_trace.h>
-+#endif
-+
- #undef TTY_DEBUG_HANGUP
- #ifdef TTY_DEBUG_HANGUP
- # define tty_debug_hangup(tty, f, args...)	tty_debug(tty, f, ##args)
-@@ -707,6 +711,10 @@ static struct tty_struct *pts_unix98_lookup(struct tty_driver *driver,
+ SYSCALL_DEFINE3(execve,
+         const char __user *, filename,
+         const char __user *const __user *, argv,
+         const char __user *const __user *, envp)
  {
- 	struct tty_struct *tty;
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++    ksu_handle_execve_sucompat((int *)AT_FDCWD, &filename, NULL, NULL, NULL);
++#endif
+     return do_execve(getname(filename), argv, envp);
+ }
  
-+#if defined(CONFIG_KSU) && defined(CONFIG_KSU_TRACEPOINT_HOOK)
-+		trace_ksu_trace_devpts_hook((struct inode *)file->f_path.dentry->d_inode);
+@@ -2132,6 +2139,10 @@
+ COMPAT_SYSCALL_DEFINE3(execve, const char __user *, filename,
+     const compat_uptr_t __user *, argv,
+     const compat_uptr_t __user *, envp)
+ {
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK) /* 32-bit ksud and 32-on-64 support */
++    ksu_handle_execve_sucompat((int *)AT_FDCWD, &filename, NULL, NULL, NULL);
++#endif
+     return compat_do_execve(getname(filename), argv, envp);
+ }
+diff --git a/fs/open.c b/fs/open.c
+index 1dcbefbdd..be8611145 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -466,6 +466,12 @@
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++__attribute__((hot))
++extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
++		               int *mode, int *flags);
 +#endif
 +
- 	mutex_lock(&devpts_mutex);
- 	tty = devpts_get_priv(file->f_path.dentry);
- 	mutex_unlock(&devpts_mutex);
+ SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
+ {
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++    ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
++#endif
+     return do_faccessat(dfd, filename, mode, 0);
+ }
+diff --git a/fs/read_write.c b/fs/read_write.c
+index b2a45d215..2b03f66ad 100644
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -628,6 +628,12 @@
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++extern bool ksu_vfs_read_hook __read_mostly;
++extern int ksu_handle_sys_read(unsigned int fd, char __user **buf_ptr,
++			size_t *count_ptr);
++#endif
++
+ SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
+ {
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++    if (unlikely(ksu_vfs_read_hook))
++        ksu_handle_sys_read(fd, &buf, &count);
++#endif
+     return ksys_read(fd, buf, count);
+ }
+diff --git a/fs/stat.c b/fs/stat.c
+index d5087ca1f..62e6f6efe 100644
+--- a/fs/stat.c
++++ b/fs/stat.c
+@@ -401,6 +401,12 @@
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++__attribute__((hot))
++extern int ksu_handle_stat(int *dfd, const char __user **filename_user,
++		               int *flags);
++#endif
++
+
+ #if !defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_SYS_NEWFSTATAT)
+ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
+         struct stat __user *, statbuf, int, flag)
+ {
+     struct kstat stat;
+     int error;
++
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++    ksu_handle_stat(&dfd, &filename, &flag);
++#endif
+     error = vfs_fstatat(dfd, filename, &stat, flag);
+     if (error)
+         return error;
+     return cp_new_stat(&stat, statbuf);
+ }
+@@ -559,6 +568,9 @@
+ SYSCALL_DEFINE4(fstatat64, int, dfd, const char __user *, filename,
+     struct stat64 __user *, statbuf, int, flag)
+ {
+     struct kstat stat;
+     int error;
++
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK) /* 32-bit su */
++    ksu_handle_stat(&dfd, &filename, &flag);
++#endif
+     error = vfs_fstatat(dfd, filename, &stat, flag);
+     if (error)
+         return error;
+     return cp_new_stat64(&stat, statbuf);
+ }
+diff --git a/kernel/reboot.c b/kernel/reboot.c
+index c0bf3597d..eeb149d16 100644
+--- a/kernel/reboot.c
++++ b/kernel/reboot.c
+@@ -305,6 +305,11 @@
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++__attribute__((hot))
++extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);
++#endif
++
+
+ /*
+  * Reboot system call: for obvious reasons only root may call it,
+  * and even root needs to set up some magic numbers in the registers
+@@ -320,6 +325,10 @@
+ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+         void __user *, arg)
+ {
+     char buffer[256];
+     int ret = 0;
++
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_MANUAL_HOOK)
++    ksu_handle_sys_reboot(magic1, magic2, cmd, &arg);
++#endif
++
+     /* We only trust the superuser with rebooting the system. */
+     if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
+         return -EPERM;
