@@ -49,7 +49,7 @@ jobs:
 
           # 进入内核目录并应用补丁
           cd kernel
-          wget -O- https://kkgithub.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
+          wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' security/Kconfig
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/su.patch
           patch -p1 < su.patch
