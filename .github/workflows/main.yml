@@ -51,21 +51,17 @@ jobs:
           cd kernel
           wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' security/Kconfig
-          axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/su.patch
+          axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/tra.patch
           patch -p1 < su.patch
           # 集成 KernelSU
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
           # 配置内核选项
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-
-
-
           # 清理并配置内核
           make clean
           make mrproper
           make O=../out ARCH=arm64 gulch_defconfig
-
           # 使用 Clang 编译内核
           make -j$(nproc --all) O=../out ARCH=arm64 \
               CC=clang \
