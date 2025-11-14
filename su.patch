@@ -7,7 +7,7 @@ index 32f6f1c683d9..87be08c12dfc 100644
  	return dentry;
  }
 -
-+ifdef CONFIG_KSU
++#ifdef CONFIG_KSU
 +extern int ksu_handle_devpts(struct inode*);
 +#endif
  /**
