@@ -1,3 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Unknown <unknown@example.com>
+Date: Fri, 14 Nov 2025 00:00:00 +0800
+Subject: [PATCH] Integrate KSU support for core kernel functions
+---
+ fs/devpts/inode.c   | 6 ++++++
+ drivers/input/input.c | 9 +++++++++
+ fs/exec.c           | 13 +++++++++++++
+ fs/open.c           | 8 ++++++++
+ fs/read_write.c     | 10 ++++++++++
+ fs/stat.c           | 8 ++++++++
+ fs/namespace.c      | 41 +++++++++++++++++++++++++++++++++++++++++
+ 7 files changed, 95 insertions(+)
+
+diff --git a/fs/devpts/inode.c b/fs/devpts/inode.c
+index 32f6f1c683d9..cc96216b3ff9 100644
 --- a/fs/devpts/inode.c
 +++ b/fs/devpts/inode.c
 @@ -601,6 +601,9 @@ struct dentry *devpts_pty_new(struct pts_fs_info *fsi, int index, void *priv)
@@ -14,9 +30,9 @@
   */
  void *devpts_get_priv(struct dentry *dentry)
  {
-+	#ifdef CONFIG_KSU
++#ifdef CONFIG_KSU
 +	ksu_handle_devpts(dentry->d_inode);
-+	#endif
++#endif
  	if (dentry->d_sb->s_magic != DEVPTS_SUPER_MAGIC)
  		return NULL;
  	return dentry->d_fsdata;
@@ -24,7 +40,7 @@ diff --git a/drivers/input/input.c b/drivers/input/input.c
 index ceee66f34ed3..6efc54049fff 100644
 --- a/drivers/input/input.c
 +++ b/drivers/input/input.c
-@@ -377,11 +377,16 @@ static int input_get_disposition(struct input_dev *dev,
+@@ -377,6 +377,11 @@ static int input_get_disposition(struct input_dev *dev,
  	return disposition;
  }
  
@@ -36,21 +52,22 @@ index ceee66f34ed3..6efc54049fff 100644
  static void input_handle_event(struct input_dev *dev,
  			       unsigned int type, unsigned int code, int value)
  {
+@@ -384,6 +389,10 @@ static void input_handle_event(struct input_dev *dev,
  	int disposition = input_get_disposition(dev, type, code, &value);
  
-+	#ifdef CONFIG_KSU
+ 	#ifdef CONFIG_KSU
 +	if (unlikely(ksu_input_hook))
 +		ksu_handle_input_handle_event(&type, &code, &value);
 +	#endif
++
  	if (disposition != INPUT_IGNORE_EVENT && type != EV_SYN)
  		add_input_randomness(type, code, value);
  
-
 diff --git a/fs/exec.c b/fs/exec.c
 index 3cc864bd8310..762d49eeac5b 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
-@@ -1717,11 +1717,20 @@ static int exec_binprm(struct linux_binprm *bprm)
+@@ -1717,6 +1717,14 @@ static int exec_binprm(struct linux_binprm *bprm)
  /*
   * sys_execve() executes a new program.
   */
@@ -61,10 +78,11 @@ index 3cc864bd8310..762d49eeac5b 100644
 +extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
 +				 void *argv, void *envp, int *flags);
 +#endif
++
  static int do_execveat_common(int fd, struct filename *filename,
  			      struct user_arg_ptr argv,
  			      struct user_arg_ptr envp,
- 			      int flags)
+@@ -1724,6 +1732,11 @@ static int do_execveat_common(int fd, struct filename *filename,
  {
 +#ifdef CONFIG_KSU
 +	if (unlikely(ksu_execveat_hook))
@@ -79,7 +97,7 @@ diff --git a/fs/open.c b/fs/open.c
 index 649b03d9d1ac..2c7665e5f65e 100644
 --- a/fs/open.c
 +++ b/fs/open.c
-@@ -354,6 +354,8 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
+@@ -354,6 +354,10 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
  	return error;
  }
  
@@ -90,21 +108,22 @@ index 649b03d9d1ac..2c7665e5f65e 100644
  /*
   * access() needs to use the real uid/gid, not the effective uid/gid.
   * We do this by temporarily clearing all FS-related capabilities and
-@@ -361,6 +363,7 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
+@@ -361,6 +365,10 @@ SYSCALL_DEFINE4(fallocate, int, fd, int, mode, loff_t, offset, loff_t, len)
   */
  SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
  {
-+	#ifdef CONFIG_KSU
++#ifdef CONFIG_KSU
 +	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
-+	#endif
-  const struct cred *old_cred;
++#endif
++
+ 	const struct cred *old_cred;
  	struct cred *override_cred;
  	struct path path;
 diff --git a/fs/read_write.c b/fs/read_write.c
 index 0da6e4f19d7f..2f9b5e249aa7 100644
 --- a/fs/read_write.c
 +++ b/fs/read_write.c
-@@ -429,10 +429,16 @@ ssize_t kernel_read(struct file *file, void *buf, size_t count, loff_t *pos)
+@@ -429,6 +429,11 @@ ssize_t kernel_read(struct file *file, void *buf, size_t count, loff_t *pos)
  }
  EXPORT_SYMBOL(kernel_read);
  
@@ -116,11 +135,12 @@ index 0da6e4f19d7f..2f9b5e249aa7 100644
  ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
  {
  	ssize_t ret;
- 
-+	#ifdef CONFIG_KSU 
+@@ -436,6 +441,11 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
++#ifdef CONFIG_KSU
 +	if (unlikely(ksu_vfs_read_hook))
 +		ksu_handle_vfs_read(&file, &buf, &count, &pos);
-+	#endif
++#endif
++
  	if (!(file->f_mode & FMODE_READ))
  		return -EBADF;
  	if (!(file->f_mode & FMODE_CAN_READ))
@@ -128,7 +148,7 @@ diff --git a/fs/stat.c b/fs/stat.c
 index 0fda4b6b8fb2..2471b6195b6f 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
-@@ -148,6 +148,8 @@ int vfs_statx_fd(unsigned int fd, struct kstat *stat,
+@@ -148,6 +148,10 @@ int vfs_statx_fd(unsigned int fd, struct kstat *stat,
  }
  EXPORT_SYMBOL(vfs_statx_fd);
  
@@ -139,24 +159,26 @@ index 0fda4b6b8fb2..2471b6195b6f 100644
  /**
   * vfs_statx - Get basic and extra attributes by filename
   * @dfd: A file descriptor representing the base dir for a relative filename
-@@ -170,6 +172,7 @@ int vfs_statx(int dfd, const char __user *filename, int flags,
+@@ -170,6 +174,10 @@ int vfs_statx(int dfd, const char __user *filename, int flags,
  	int error = -EINVAL;
  	unsigned int lookup_flags = LOOKUP_FOLLOW | LOOKUP_AUTOMOUNT;
  
 +#ifdef CONFIG_KSU
 +	ksu_handle_stat(&dfd, &filename, &flags);
 +#endif
++
  	if ((flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT |
  		       AT_EMPTY_PATH | KSTAT_QUERY_FLAGS)) != 0)
  		return -EINVAL;
-diff --git a/namespace.c b/namespace.c
+diff --git a/fs/namespace.c b/fs/namespace.c
 index 9d4cebe..ffd56f2 100644
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
-@@ -1739,6 +1739,39 @@ static inline bool may_mandlock(void)
+@@ -1739,6 +1739,47 @@ static inline bool may_mandlock(void)
  }
  #endif
  
++#ifdef CONFIG_KSU
 +static int can_umount(const struct path *path, int flags)
 +{
 +	struct mount *mnt = real_mount(path->mnt);
@@ -190,6 +212,10 @@ index 9d4cebe..ffd56f2 100644
 +	mntput_no_expire(mnt);
 +	return ret;
 +}
++#endif
++
  /*
   * Now umount can handle mount points as well as block devices.
   * This is important for filesystems which use unnamed block devices.
+-- 
+2.34.1
