@@ -1,18 +1,19 @@
 diff --git a/fs/devpts/inode.c b/fs/devpts/inode.c
-index 32f6f1c683d9..cc96216b3ff9 100644
+index 32f6f1c683d9..87be08c12dfc 100644
 --- a/fs/devpts/inode.c
 +++ b/fs/devpts/inode.c
-@@ -601,6 +601,9 @@ struct dentry *devpts_pty_new(struct pts_fs_info *fsi, int index, void *priv)
+@@ -601,7 +601,9 @@ struct dentry *devpts_pty_new(struct pts_fs_info *fsi, int index, void *priv)
  
  	return dentry;
  }
-+#ifdef CONFIG_KSU
+-
++ifdef CONFIG_KSU
 +extern int ksu_handle_devpts(struct inode*);
 +#endif
-+
  /**
   * devpts_get_priv -- get private data for a slave
-@@ -610,6 +613,9 @@ struct dentry *devpts_pty_new(struct pts_fs_info *fsi, int index, void *priv)
+  * @pts_inode: inode of the slave
+@@ -610,6 +612,9 @@ struct dentry *devpts_pty_new(struct pts_fs_info *fsi, int index, void *priv)
   */
  void *devpts_get_priv(struct dentry *dentry)
  {
