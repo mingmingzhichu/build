@@ -18,7 +18,7 @@ index 32f6f1c683d9..cc96216b3ff9 100644
  {
 +	#ifdef CONFIG_KSU
 +	ksu_handle_devpts(dentry->d_inode);
-+		#endif
++	#endif
  	if (dentry->d_sb->s_magic != DEVPTS_SUPER_MAGIC)
  		return NULL;
  	return dentry->d_fsdata;
