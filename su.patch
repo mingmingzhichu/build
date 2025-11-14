@@ -74,7 +74,8 @@ index 649b03d9d1ac..2c7665e5f65e 100644
  {
 +	#ifdef CONFIG_KSU
 +	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
-+	#endif 	const struct cred *old_cred;
++	#endif
+  const struct cred *old_cred;
  	struct cred *override_cred;
  	struct path path;
 diff --git a/fs/read_write.c b/fs/read_write.c
@@ -123,7 +124,7 @@ index 0fda4b6b8fb2..2471b6195b6f 100644
 +#ifdef CONFIG_KSU
 +	ksu_handle_stat(&dfd, &filename, &flags);
 +#endif
-if ((flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT |
+ 	if ((flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT |
  		       AT_EMPTY_PATH | KSTAT_QUERY_FLAGS)) != 0)
  		return -EINVAL;
 diff --git a/namespace.c b/namespace.c
