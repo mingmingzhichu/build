@@ -1,4 +1,3 @@
-
 --- a/fs/devpts/inode.c
 +++ b/fs/devpts/inode.c
 @@ -601,6 +601,9 @@ struct dentry *devpts_pty_new(struct pts_fs_info *fsi, int index, void *priv)
@@ -15,13 +14,12 @@
   */
  void *devpts_get_priv(struct dentry *dentry)
  {
-+#ifdef CONFIG_KSU
++	#ifdef CONFIG_KSU
 +	ksu_handle_devpts(dentry->d_inode);
-+#endif
++	#endif
  	if (dentry->d_sb->s_magic != DEVPTS_SUPER_MAGIC)
  		return NULL;
  	return dentry->d_fsdata;
-
 diff --git a/drivers/input/input.c b/drivers/input/input.c
 index ceee66f34ed3..6efc54049fff 100644
 --- a/drivers/input/input.c
