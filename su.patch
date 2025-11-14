@@ -1,3 +1,27 @@
+diff --git a/fs/devpts/inode.c b/fs/devpts/inode.c
+index 32f6f1c683d9..cc96216b3ff9 100644
+--- a/fs/devpts/inode.c
++++ b/fs/devpts/inode.c
+@@ -601,6 +601,9 @@ struct dentry *devpts_pty_new(struct pts_fs_info *fsi, int index, void *priv)
+ 
+ 	return dentry;
+ }
++#ifdef CONFIG_KSU
++extern int ksu_handle_devpts(struct inode*);
++#endif
++
+ /**
+  * devpts_get_priv -- get private data for a slave
+@@ -610,6 +613,9 @@ struct dentry *devpts_pty_new(struct pts_fs_info *fsi, int index, void *priv)
+  */
+ void *devpts_get_priv(struct dentry *dentry)
+ {
++	#ifdef CONFIG_KSU
++	ksu_handle_devpts(dentry->d_inode);
++	#endif
+ 	if (dentry->d_sb->s_magic != DEVPTS_SUPER_MAGIC)
+ 		return NULL;
+ 	return dentry->d_fsdata;
 diff --git a/drivers/input/input.c b/drivers/input/input.c
 index ceee66f34ed3..6efc54049fff 100644
 --- a/drivers/input/input.c
@@ -6,20 +30,16 @@ index ceee66f34ed3..6efc54049fff 100644
  	return disposition;
  }
  
-+#ifdef CONFIG_KSU
 +extern bool ksu_input_hook __read_mostly;
 +extern int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *value);
-+#endif
-+
  static void input_handle_event(struct input_dev *dev,
  			       unsigned int type, unsigned int code, int value)
  {
  	int disposition = input_get_disposition(dev, type, code, &value);
  
-+	#ifdef CONFIG_KSU
 +	if (unlikely(ksu_input_hook))
 +		ksu_handle_input_handle_event(&type, &code, &value);
-+	#endif
++
  	if (disposition != INPUT_IGNORE_EVENT && type != EV_SYN)
  		add_input_randomness(type, code, value);
  
@@ -32,24 +52,20 @@ index 3cc864bd8310..762d49eeac5b 100644
  /*
   * sys_execve() executes a new program.
   */
-+#ifdef CONFIG_KSU
 +extern bool ksu_execveat_hook __read_mostly;
 +extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
 +			void *envp, int *flags);
 +extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr,
 +				 void *argv, void *envp, int *flags);
-+#endif
  static int do_execveat_common(int fd, struct filename *filename,
  			      struct user_arg_ptr argv,
  			      struct user_arg_ptr envp,
  			      int flags)
  {
-+#ifdef CONFIG_KSU
 +	if (unlikely(ksu_execveat_hook))
 +		ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
 +	else
 +		ksu_handle_execveat_sucompat(&fd, &filename, &argv, &envp, &flags);
-+#endif
  	char *pathbuf = NULL;
  	struct linux_binprm bprm;
  	struct file *file;
@@ -61,10 +77,8 @@ index 649b03d9d1ac..2c7665e5f65e 100644
  	return error;
  }
  
-+#ifdef CONFIG_KSU
 +extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
 +			 int *flags);
-+#endif
  /*
   * access() needs to use the real uid/gid, not the effective uid/gid.
   * We do this by temporarily clearing all FS-related capabilities and
@@ -72,9 +86,7 @@ index 649b03d9d1ac..2c7665e5f65e 100644
   */
  SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
  {
-+	#ifdef CONFIG_KSU
 +	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
-+	#endif
  	const struct cred *old_cred;
  	struct cred *override_cred;
  	struct path path;
@@ -86,19 +98,16 @@ index 0da6e4f19d7f..2f9b5e249aa7 100644
  }
  EXPORT_SYMBOL(kernel_read);
  
-+#ifdef CONFIG_KSU
 +extern bool ksu_vfs_read_hook __read_mostly;
 +extern int ksu_handle_vfs_read(struct file **file_ptr, char __user **buf_ptr,
 +			size_t *count_ptr, loff_t **pos);
-+#endif
  ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
  {
  	ssize_t ret;
  
-+	#ifdef CONFIG_KSU 
 +	if (unlikely(ksu_vfs_read_hook))
 +		ksu_handle_vfs_read(&file, &buf, &count, &pos);
-+	#endif
++
  	if (!(file->f_mode & FMODE_READ))
  		return -EBADF;
  	if (!(file->f_mode & FMODE_CAN_READ))
@@ -110,9 +119,7 @@ index 0fda4b6b8fb2..2471b6195b6f 100644
  }
  EXPORT_SYMBOL(vfs_statx_fd);
  
-+#ifdef CONFIG_KSU
 +extern int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags);
-+#endif
 +
  /**
   * vfs_statx - Get basic and extra attributes by filename
@@ -121,10 +128,8 @@ index 0fda4b6b8fb2..2471b6195b6f 100644
  	int error = -EINVAL;
  	unsigned int lookup_flags = LOOKUP_FOLLOW | LOOKUP_AUTOMOUNT;
  
-+#ifdef CONFIG_KSU
 +	ksu_handle_stat(&dfd, &filename, &flags);
-+#endif
-if ((flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT |
+ 	if ((flags & ~(AT_SYMLINK_NOFOLLOW | AT_NO_AUTOMOUNT |
  		       AT_EMPTY_PATH | KSTAT_QUERY_FLAGS)) != 0)
  		return -EINVAL;
 diff --git a/namespace.c b/namespace.c
