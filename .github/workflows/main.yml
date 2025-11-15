@@ -51,38 +51,36 @@ jobs:
           cd kernel
           echo -e "\n===== 开始更新LZ4到v1.10.0（不备份）====="
 
-# 内核路径：用户主目录下的 kernel 文件夹
-if [ ! -d "$HOME/kernel" ]; then
-  echo "❌ 未找到内核源码目录 $HOME/kernel"
-  exit 1
-fi
+          # 内核路径：用户主目录下的 kernel 文件夹
+          if [ ! -d "$HOME/kernel" ]; then
+            echo "❌ 未找到内核源码目录 $HOME/kernel"
+          fi
 
-# 删除旧LZ4目录
-if [ -d "$HOME/kernel/lib/lz4" ]; then
-  echo "🗑️ 删除旧LZ4目录"
-  rm -rf "$HOME/kernel/lib/lz4"
-fi
-mkdir -p "$HOME/kernel/lib/lz4"
+          # 删除旧LZ4目录
+          if [ -d "$HOME/kernel/lib/lz4" ]; then
+            echo "🗑️ 删除旧LZ4目录"
+            rm -rf "$HOME/kernel/lib/lz4"
+          fi
+          mkdir -p "$HOME/kernel/lib/lz4"
 
-# 下载LZ4 v1.10.0源码
-echo "📥 下载LZ4 v1.10.0..."
-rm -rf lz4_temp
-git clone --tag v1.10.0 --depth 1 https://github.com/lz4/lz4.git lz4_temp
+          #  下载LZ4 v1.10.0源码
+          echo "📥 下载LZ4 v1.10.0..."
+          rm -rf lz4_temp
+          git clone --tag v1.10.0 --depth 1 https://github.com/lz4/lz4.git lz4_temp
 
-# 复制核心源码文件到内核目录
-echo "🔄 替换新LZ4源码..."
-cp lz4_temp/lib/lz4_compress.c lz4_temp/lib/lz4_decompress.c lz4_temp/lib/lz4hc_compress.c lz4_temp/lib/lz4.h lz4_temp/lib/lz4hc.h "$HOME/kernel/lib/lz4/"
+          # 复制核心源码文件到内核目录
+          echo "🔄 替换新LZ4源码..."
+          cp lz4_temp/lib/lz4_compress.c lz4_temp/lib/lz4_decompress.c lz4_temp/lib/lz4hc_compress.c lz4_temp/lib/lz4.h lz4_temp/lib/lz4hc.h "$HOME/kernel/lib/lz4/"
 
-# 清理临时文件
-rm -rf lz4_temp
+          # 清理临时文件
+          rm -rf lz4_temp
 
-# 验证更新结果
-if [ -f "$HOME/kernel/lib/lz4/lz4_compress.c" ] && [ -f "$HOME/kernel/lib/lz4/lz4.h" ]; then
-  echo -e "\n✅ LZ4 v1.10.0 更新完成！"
-else
-  echo -e "\n❌ LZ4更新失败！"
-  exit 1
-fi
+          # 验证更新结果
+          if [ -f "$HOME/kernel/lib/lz4/lz4_compress.c" ] && [ -f "$HOME/kernel/lib/lz4/lz4.h" ]; then
+            echo -e "\n✅ LZ4 v1.10.0 更新完成！"
+          else
+            echo -e "\n❌ LZ4更新失败！"
+          fi
           wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
           sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' security/Kconfig
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/tra.patch
