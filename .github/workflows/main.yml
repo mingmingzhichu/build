@@ -70,7 +70,7 @@ jobs:
 
           # 复制核心源码文件到内核目录
           echo "🔄 替换新LZ4源码..."
-          cp lz4_temp/lib/lz4_compress.c lz4_temp/lib/lz4_decompress.c lz4_temp/lib/lz4hc_compress.c lz4_temp/lib/lz4.h lz4_temp/lib/lz4hc.h "$HOME/kernel/lib/lz4/"
+          cp lz4_temp/lib/lz4.c lz4_temp/lib/lz4hc.c lz4_temp/lib/lz4.h lz4_temp/lib/lz4hc.h "$HOME/kernel/lib/lz4/"
 
           # 清理临时文件
           rm -rf lz4_temp
