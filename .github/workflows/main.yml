@@ -56,7 +56,7 @@ jobs:
           # 集成 KernelSU
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_KSU_DRY_RUN=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          grep "ksu_handle_faccessat" ~/kernel/fs/open.c
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
           # 清理并配置内核
           make clean
