@@ -16,15 +16,13 @@ jobs:
           
       - name: build
         run: |
-          #!/bin/bash
-          set +e
           # 确保系统是最新的
           cd ~
           sudo apt update
 
           # 安装必要的依赖
           sudo apt install -y curl axel git build-essential flex bison libssl-dev \
-              libncurses5-dev libelf-dev bc python3 rsync file patch
+              libncurses5-dev libelf-dev bc python3 rsync file
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/AnyKernel3-master.zip
           # 安装 aarch64 和 arm32 交叉编译工具链
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
@@ -36,7 +34,6 @@ jobs:
           export KBUILD_BUILD_USER=mmzch
           export KBUILD_BUILD_HOST=localhost
           export HOME=~/
-          export srctree=~/kernel
           export CLANG_PATH=$HOME/clang/bin
           export PATH="$CLANG_PATH:$PATH"
           export CROSS_COMPILE=aarch64-linux-gnu-
