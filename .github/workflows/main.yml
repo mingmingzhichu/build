@@ -38,6 +38,7 @@ jobs:
           export KBUILD_BUILD_USER=mmzch
           export KBUILD_BUILD_HOST=localhost
           export HOME=~/
+          export srctree=~/kernel
           export CLANG_PATH=$HOME/clang/bin
           export PATH="$CLANG_PATH:$PATH"
           export CROSS_COMPILE=aarch64-linux-gnu-
