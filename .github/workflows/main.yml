@@ -16,7 +16,8 @@ jobs:
           
       - name: build
         run: |
-          
+          #!/bin/bash
+          set +e
           # 确保系统是最新的
           cd ~
           sudo apt update
@@ -60,8 +61,6 @@ jobs:
           grep "ksu_handle_faccessat" ~/kernel/fs/open.c
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
           # 清理并配置内核
-          make clean
-          make mrproper
           make O=../out ARCH=arm64 gulch_defconfig
           # 使用 Clang 编译内核
           make -j$(nproc --all) O=../out ARCH=arm64 \
