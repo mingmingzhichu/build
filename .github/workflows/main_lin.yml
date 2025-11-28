@@ -28,7 +28,7 @@ jobs:
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
               gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
           # 克隆内核源码和 Clang 工具链
-          git clone https://github.com/yaap/kernel_oneplus_sm8150.git -b sixteen kernel --depth=1
+          git clone https://github.com/LineageOS/android_kernel_oneplus_sm8150.git -b 23.0 kernel --depth=1
           git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r536225 clang --depth=1
           # 设置环境变量
           export KBUILD_BUILD_USER=mmzch
@@ -45,16 +45,8 @@ jobs:
 
           # 进入内核目录并应用补丁
           cd kernel
-          wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
-          sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' security/Kconfig
-          # 集成 KernelSU
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/tra.patch
-          patch -p1 < tra.patch
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s nongki
           # 配置内核
-          make O=../out ARCH=arm64 gulch_defconfig
+          make O=../out ARCH=arm64 vendor/sm8150-perf_defconfig
           # 使用 Clang 编译内核
           make -j$(nproc --all) O=../out ARCH=arm64 \
               CC=clang \
