@@ -42,13 +42,15 @@ jobs:
           export SUBARCH=arm64
           export LLVM=1
           export LLVM_IAS=1
-
+          cd kernel
+          cp arch/arm64/configs/vendor/sm8150-perf_defconfig .config
+          make olddefconfig
+          scripts/kconfig/merge_config.sh -n .config /path/to/your_phone_config.txt
+          make olddefconfig
           # 进入内核目录并应用补丁
           cd kernel
-          # 配置内核
-          make O=../out ARCH=arm64 vendor/sm8150-perf_defconfig
           # 使用 Clang 编译内核
-          make -j$(nproc --all) O=../out ARCH=arm64 Image \
+          make -j$(nproc --all) ARCH=arm64 Image \
               CC=clang \
               LD=ld.lld \
               AR=llvm-ar \
@@ -63,7 +65,7 @@ jobs:
 
           cd ~
           unzip ~/AnyKernel3-master.zip -d ~/AnyKernel3-master
-          cp ~/out/arch/arm64/boot/Image.gz-dtb ~/AnyKernel3-master/
+          cp ~/kernel/arch/arm64/boot/Image.gz-dtb ~/AnyKernel3-master/
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
