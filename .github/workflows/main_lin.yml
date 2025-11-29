@@ -44,10 +44,8 @@ jobs:
           export LLVM=1
           export LLVM_IAS=1
           cd kernel
-          make ARCH=arm64 vendor/sm8150-perf_defconfig .config
-          make olddefconfig
-          scripts/kconfig/merge_config.sh -n .config ../config
-          make olddefconfig
+          cp ../config ./arch/arm64/config/lin-perf_defconfig
+          make ARCH=arm64 lin-perf_defconfig
           # 使用 Clang 编译内核
           make -j$(nproc --all) ARCH=arm64 \
               CC=clang \
