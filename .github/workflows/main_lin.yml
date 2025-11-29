@@ -24,6 +24,7 @@ jobs:
           sudo apt install -y curl axel git build-essential flex bison libssl-dev \
               libncurses5-dev libelf-dev bc python3 rsync file
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/AnyKernel3-master.zip
+          axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/config
           # 安装 aarch64 和 arm32 交叉编译工具链
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
               gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
@@ -45,7 +46,7 @@ jobs:
           cd kernel
           cp arch/arm64/configs/vendor/sm8150-perf_defconfig .config
           make olddefconfig
-          scripts/kconfig/merge_config.sh -n .config /path/to/your_phone_config.txt
+          scripts/kconfig/merge_config.sh -n .config ../config
           make olddefconfig
           # 进入内核目录并应用补丁
           cd kernel
