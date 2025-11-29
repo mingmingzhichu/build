@@ -44,12 +44,10 @@ jobs:
           export LLVM=1
           export LLVM_IAS=1
           cd kernel
-          cp arch/arm64/configs/vendor/sm8150-perf_defconfig .config
+          make ARCH=arm64 vendor/sm8150-perf_defconfig .config
           make olddefconfig
           scripts/kconfig/merge_config.sh -n .config ../config
           make olddefconfig
-          # 进入内核目录并应用补丁
-          cd kernel
           # 使用 Clang 编译内核
           make -j$(nproc --all) ARCH=arm64 \
               CC=clang \
