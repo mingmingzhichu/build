@@ -44,7 +44,7 @@ jobs:
           export LLVM=1
           export LLVM_IAS=1
           cd kernel
-          cp ../config ./arch/arm64/config/lin-perf_defconfig
+          cp ../config ./arch/arm64/configs/lin-perf_defconfig
           make ARCH=arm64 lin-perf_defconfig
           # 使用 Clang 编译内核
           make -j$(nproc --all) ARCH=arm64 \
