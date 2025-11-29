@@ -45,8 +45,8 @@ jobs:
           export LLVM_IAS=1
           cd kernel
           sed -i '/^#include "cam_trace.h"/i\
-#define TRACE_INCLUDE_FILE cam_trace\n\
-#define TRACE_INCLUDE_PATH .' "$CAM_TRACE_C"
+          #define TRACE_INCLUDE_FILE cam_trace\n\
+          #define TRACE_INCLUDE_PATH .' "$CAM_TRACE_C"
 
           cp ../config ./arch/arm64/configs/lin-perf_defconfig
           make ARCH=arm64 lin-perf_defconfig
