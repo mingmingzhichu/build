@@ -44,10 +44,7 @@ jobs:
           export LLVM=1
           export LLVM_IAS=1
           cd kernel
-          sed -i '/^#include "cam_trace.h"/i\
-          #define TRACE_INCLUDE_FILE cam_trace\n\
-          #define TRACE_INCLUDE_PATH .' "drivers/media/platform/msm/camera/cam_utils/cam_trace.c"
-
+          sed -i '/^#include "cam_trace.h"/i\#define TRACE_INCLUDE_FILE cam_trace\n#define TRACE_INCLUDE_PATH "'"./"'/drivers/media/platform/msm/camera/cam_utils"' "./drivers/media/platform/msm/camera/cam_utils/cam_trace.c"
           cp ../config ./arch/arm64/configs/lin-perf_defconfig
           make ARCH=arm64 lin-perf_defconfig
           # 使用 Clang 编译内核
