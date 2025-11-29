@@ -51,7 +51,7 @@ jobs:
           # 进入内核目录并应用补丁
           cd kernel
           # 使用 Clang 编译内核
-          make -j$(nproc --all) ARCH=arm64 Image \
+          make -j$(nproc --all) ARCH=arm64 \
               CC=clang \
               LD=ld.lld \
               AR=llvm-ar \
