@@ -24,7 +24,7 @@ jobs:
           sudo apt install -y curl axel git build-essential flex bison libssl-dev \
               libncurses5-dev libelf-dev bc python3 rsync file
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/AnyKernel3-master.zip
-          axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/config
+          axel https://raw.githubusercontent.com/snowwolf725/android_kernel_oneplus_sm8150/refs/heads/oneplus/LOS_SM8150_14.0/arch/arm64/configs/lineage_sm8150_defconfig
           # 安装 aarch64 和 arm32 交叉编译工具链
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
               gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
@@ -44,11 +44,8 @@ jobs:
           export LLVM=1
           export LLVM_IAS=1
           cd kernel
-          sed -i '1i\#define TRACE_INCLUDE_FILE cam_trace\n#define TRACE_INCLUDE_PATH /home/runner/kernel/drivers/media/platform/msm/camera/cam_utils' drivers/media/platform/msm/camera/cam_utils/cam_trace.h && \
-          sed -i 's|^#define CREATE_TRACE_POINTS|#define TRACE_INCLUDE_FILE cam_trace\n#define TRACE_INCLUDE_PATH /home/runner/kernel/drivers/media/platform/msm/camera/cam_utils\n#define CREATE_TRACE_POINTS|' drivers/media/platform/msm/camera/cam_utils/cam_trace.c && \
-
           sed -i '/^obj-\$/i\ccflags-y += -Idrivers/platform/msm/ipa/ipa_v3/include\nccflags-y += -Idrivers/platform/msm/ipa' drivers/platform/msm/ipa/ipa_v3/Makefile
-          cp ../config ./arch/arm64/configs/lin-perf_defconfig
+          cp ../lineage_sm8150_defconfig ./arch/arm64/configs/lin-perf_defconfig
           make ARCH=arm64 lin-perf_defconfig
           # 使用 Clang 编译内核
           make -j$(nproc --all) ARCH=arm64 \
