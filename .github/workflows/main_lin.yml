@@ -44,8 +44,9 @@ jobs:
           export LLVM=1
           export LLVM_IAS=1
           cd kernel
-          sed -i '1i\#ifndef TRACE_INCLUDE_FILE\n#define TRACE_INCLUDE_FILE cam_trace\n#endif\n#ifndef TRACE_INCLUDE_PATH\n#define TRACE_INCLUDE_PATH "'"$(pwd)"'/drivers/media/platform/msm/camera/cam_utils"\n#endif' drivers/media/platform/msm/camera/cam_utils/cam_trace.h
-          head -10 drivers/media/platform/msm/camera/cam_utils/cam_trace.h
+          sed -i 's|#define TRACE_INCLUDE_PATH ".*"|#define TRACE_INCLUDE_PATH /home/runner/kernel/drivers/media/platform/msm/camera/cam_utils|' drivers/media/platform/msm/camera/cam_utils/cam_trace.h
+          sed -i '/^#define CREATE_TRACE_POINTS/i\#define TRACE_INCLUDE_FILE cam_trace\n#define TRACE_INCLUDE_PATH /home/runner/kernel/drivers/media/platform/msm/camera/cam_utils' drivers/media/platform/msm/camera/cam_utils/cam_trace.c
+
           sed -i '/^obj-\$/i\ccflags-y += -Idrivers/platform/msm/ipa/ipa_v3/include\nccflags-y += -Idrivers/platform/msm/ipa' drivers/platform/msm/ipa/ipa_v3/Makefile
           cp ../config ./arch/arm64/configs/lin-perf_defconfig
           make ARCH=arm64 lin-perf_defconfig
