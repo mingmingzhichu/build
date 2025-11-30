@@ -44,8 +44,14 @@ jobs:
           export LLVM=1
           export LLVM_IAS=1
           cd kernel
-          sed -i '/^obj-\$/i\ccflags-y += -Idrivers/platform/msm/ipa/ipa_v3/include\nccflags-y += -Idrivers/platform/msm/ipa' drivers/platform/msm/ipa/ipa_v3/Makefile
-          cp ../lineage_sm8150_defconfig ./arch/arm64/configs/lin-perf_defconfig
+          sed -i \
+             -e '/^CONFIG_TRACING=/d' \
+             -e '/^CONFIG_EVENT_TRACING=/d' \
+             -e '/^CONFIG_TRACE_EVENTS=/d' \
+             -e '$aCONFIG_TRACING=n' \
+             -e '$aCONFIG_EVENT_TRACING=n' \
+             -e '$aCONFIG_TRACE_EVENTS=n' \
+             ./arch/arm64/configs/lin-perf_deconfig
           make ARCH=arm64 lin-perf_defconfig
           # 使用 Clang 编译内核
           make -j$(nproc --all) ARCH=arm64 \
