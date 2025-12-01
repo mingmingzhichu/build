@@ -44,6 +44,7 @@ jobs:
           export LLVM=1
           export LLVM_IAS=1
           cd kernel
+          cp ../lineage_sm8150_defconfig ./arch/arm64/configs/lin-perf_defconfig
           sed -i \
              -e '/^CONFIG_TRACING=/d' \
              -e '/^CONFIG_EVENT_TRACING=/d' \
