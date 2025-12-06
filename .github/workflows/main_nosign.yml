@@ -55,7 +55,7 @@ jobs:
           curl -LSs "https://raw.githubusercontent.com/rsuntk/KernelSU/main/kernel/setup.sh" | bash -s main
           # 配置内核
           make O=../out ARCH=arm64 gulch_defconfig
-          make -j$(nproc --all) O=../out ARCH=arm64 Image\
+          make -j$(nproc --all) O=../out ARCH=arm64 Image \
               CC=clang \
               LD=ld.lld \
               AR=llvm-ar \
