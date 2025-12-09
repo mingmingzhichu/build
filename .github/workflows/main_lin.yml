@@ -45,17 +45,9 @@ jobs:
           export LLVM_IAS=1
           cd kernel
           cp ../lineage_sm8150_defconfig ./arch/arm64/configs/lin-perf_defconfig
-          sed -i \
-             -e '/^CONFIG_TRACING=/d' \
-             -e '/^CONFIG_EVENT_TRACING=/d' \
-             -e '/^CONFIG_TRACE_EVENTS=/d' \
-             -e '$aCONFIG_TRACING=n' \
-             -e '$aCONFIG_EVENT_TRACING=n' \
-             -e '$aCONFIG_TRACE_EVENTS=n' \
-             ./arch/arm64/configs/lin-perf_defconfig
-          make ARCH=arm64 lin-perf_defconfig
+          make ARCH=arm64 lin-perf_defconfig o=../out
           # 使用 Clang 编译内核
-          make -j$(nproc --all) ARCH=arm64 \
+          make -j$(nproc --all) ARCH=arm64 o=../out \
               CC=clang \
               LD=ld.lld \
               AR=llvm-ar \
