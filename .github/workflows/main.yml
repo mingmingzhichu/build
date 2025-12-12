@@ -44,7 +44,7 @@ jobs:
           export LLVM_IAS=1
 
           # 进入内核目录并应用补丁
-          cd kerenl
+          cd kernel
           # 集成 KernelSU
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU_SUSFS=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
