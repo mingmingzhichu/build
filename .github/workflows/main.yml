@@ -28,7 +28,7 @@ jobs:
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
               gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
           # 克隆内核源码和 Clang 工具链
-          git clone https://github.com/yaap/kernel_oneplus_sm8150.git -b sixteen kernel --depth=1
+          git clone https://github.com/mingmingzhichu/kernel_oneplus_sm8150.git -b sixteen kernel --depth=1
           git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547379.git clang --depth=1
           # 设置环境变量
           export KBUILD_BUILD_USER=mmzch
