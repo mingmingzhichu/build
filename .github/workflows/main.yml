@@ -51,8 +51,8 @@ jobs:
           echo "CONFIG_KSU_MANUAL_HOOK=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU_SUSFS=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/mini.patch
-          patch -p1 < mini.patch
+          #axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/mini.patch
+          #patch -p1 < mini.patch
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
           # 配置内核
           make O=../out ARCH=arm64 gulch_defconfig
