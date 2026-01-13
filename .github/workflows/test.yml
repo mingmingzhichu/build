@@ -1,4 +1,4 @@
-name: Build kernels with sukisu
+name: test kernels with sukisu
 
 on:
   schedule:
