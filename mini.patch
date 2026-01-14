@@ -1,30 +1,42 @@
-diff --git a/drivers/input/input.c b/drivers/input/input.c
-index ceee66f34ed3..30fb9bc58bcc 100644
---- a/drivers/input/input.c
-+++ b/drivers/input/input.c
-@@ -443,11 +443,22 @@ static void input_handle_event(struct input_dev *dev,
-  * to 'seed' initial state of a switch or initial position of absolute
-  * axis, etc.
-  */
+--- a/fs/stat.c
++++ b/fs/stat.c
 +#ifdef CONFIG_KSU
-+extern bool ksu_input_hook __read_mostly;
-+extern __attribute__((cold)) int ksu_handle_input_handle_event(
-+			unsigned int *type, unsigned int *code, int *value);
++extern void ksu_handle_newfstat_ret(unsigned int *fd, struct stat __user **statbuf_ptr);
++#ifdef CONFIG_COMPAT
++extern void ksu_compat_newfstat_ret(unsigned int *fd, struct compat_stat __user **statbuf_ptr);
++#endif
 +#endif
 +
- void input_event(struct input_dev *dev,
- 		 unsigned int type, unsigned int code, int value)
- {
- 	unsigned long flags;
- 
+SYSCALL_DEFINE2(newfstat, unsigned int, fd, struct stat __user *, statbuf)
+{
+	struct kstat stat;
+	int error = vfs_fstat(fd, &stat);
+
+	if (!error)
+		error = cp_new_stat(&stat, statbuf);
+
 +#ifdef CONFIG_KSU
-+	if (unlikely(ksu_input_hook))
-+		ksu_handle_input_handle_event(&type, &code, &value);
++	ksu_handle_newfstat_ret(&fd, &statbuf);
 +#endif
-+
- 	if (is_event_supported(type, dev->evbit, EV_MAX)) {
- 
- 		spin_lock_irqsave(&dev->event_lock, flags);
+	return error;
+}
+
+@@ -659,6 +669,10 @@ 
+
+COMPAT_SYSCALL_DEFINE2(newfstat, unsigned int, fd,
+		       struct compat_stat __user *, statbuf)
+{
+	struct kstat stat;
+	int error = vfs_fstat(fd, &stat);
+
+	if (!error)
+		error = cp_compat_stat(&stat, statbuf);
+
++#ifdef CONFIG_KSU // 32-on-64
++	ksu_compat_newfstat_ret(&fd, &statbuf);
++#endif
+	return error;
+
 diff --git a/fs/exec.c b/fs/exec.c
 index 3cc864bd8310..af484ff9938c 100644
 --- a/fs/exec.c
