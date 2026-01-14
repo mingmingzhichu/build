@@ -1,5 +1,9 @@
 --- a/fs/stat.c
 +++ b/fs/stat.c
+@@ -18,6 +18,13 @@
+ #include <linux/pagemap.h>
+ #include <linux/compat.h>
+ 
 +#ifdef CONFIG_KSU
 +extern void ksu_handle_newfstat_ret(unsigned int *fd, struct stat __user **statbuf_ptr);
 +#ifdef CONFIG_COMPAT
@@ -7,36 +11,30 @@
 +#endif
 +#endif
 +
-SYSCALL_DEFINE2(newfstat, unsigned int, fd, struct stat __user *, statbuf)
-{
-	struct kstat stat;
-	int error = vfs_fstat(fd, &stat);
-
-	if (!error)
-		error = cp_new_stat(&stat, statbuf);
-
+ #include <linux/uaccess.h>
+ #include <asm/unistd.h>
+ 
+@@ -384,6 +391,9 @@ SYSCALL_DEFINE2(newfstat, unsigned int, fd, struct stat __user *, statbuf)
+ 	if (!error)
+ 		error = cp_new_stat(&stat, statbuf);
+ 
 +#ifdef CONFIG_KSU
 +	ksu_handle_newfstat_ret(&fd, &statbuf);
 +#endif
-	return error;
-}
-
-@@ -659,6 +669,10 @@ 
-
-COMPAT_SYSCALL_DEFINE2(newfstat, unsigned int, fd,
-		       struct compat_stat __user *, statbuf)
-{
-	struct kstat stat;
-	int error = vfs_fstat(fd, &stat);
-
-	if (!error)
-		error = cp_compat_stat(&stat, statbuf);
-
+ 	return error;
+ }
+ 
+@@ -671,6 +681,10 @@ COMPAT_SYSCALL_DEFINE2(newfstat, unsigned int, fd,
+ 
+ 	if (!error)
+ 		error = cp_compat_stat(&stat, statbuf);
++
 +#ifdef CONFIG_KSU // 32-on-64
 +	ksu_compat_newfstat_ret(&fd, &statbuf);
 +#endif
-	return error;
-
+ 	return error;
+ }
+ #endif
 diff --git a/fs/exec.c b/fs/exec.c
 index 3cc864bd8310..af484ff9938c 100644
 --- a/fs/exec.c
