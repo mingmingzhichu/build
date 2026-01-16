@@ -15,8 +15,8 @@
 +#endif
 +#endif
 +
- #include <linux/uaccess.h>
- #include <asm/unistd.h>
+#include <linux/uaccess.h>
+#include <asm/unistd.h>
  
 @@ -384,6 +391,9 @@ SYSCALL_DEFINE2(newfstat, unsigned int, fd, struct stat __user *, statbuf)
  	if (!error)
