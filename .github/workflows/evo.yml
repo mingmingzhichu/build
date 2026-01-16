@@ -1,0 +1,70 @@
+name: Build KernelSU-Next for OnePlus-7-Serie
+
+on:
+  push:
+    branches:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    container: ghcr.io/tedomi2705/kernel_builder_image:latest
+
+    steps:
+      - name: 📂 Checkout builder's sourcecode and get files
+        uses: actions/checkout@v4
+ 
+      - name: ⚡ Checkout kernel's sourcecode and clone submodules
+        run: |
+          git clone --depth=1 https://github.com/Evolution-X-Devices/kernel_oneplus_sm8150 kernel_oneplus_sm8150 -b vic
+      - name: 📅 Export date of build
+        run: |
+          echo "DATE=$(date +%d%m%Y)" >> $GITHUB_ENV
+      - name: 📥 Clone AnyKernel3
+        run: |
+          cd kernel_oneplus_sm8150
+          git clone -b oneplus-7 --depth=1 https://github.com/Oneloutre/AnyKernel3.git anykernel
+          rm -rf anykernel/.git
+      - name: 🔍 Device's codename and kernel's version
+        run: |
+          cd kernel_oneplus_sm8150
+          DEVICE_CODENAME=OnePlus-7-Serie
+          KERNEL_VERSION=$(make kernelversion)
+          echo "Device Codename: $DEVICE_CODENAME"
+          echo "Kernel Version: $KERNEL_VERSION"
+          echo "DEVICE_CODENAME=$DEVICE_CODENAME" >> $GITHUB_ENV
+          echo "KERNEL_VERSION=$KERNEL_VERSION" >> $GITHUB_ENV
+      - name: 🚀 Enable ccache to speed the build up
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          max-size: 7G
+
+      - name: 🛠️ Build the kramel
+        run: |
+          ./build.sh OnePlus-7-Serie
+      - name: 🚀 Copy the compiled kernel to AnyKernel3 then create the zip
+        run: |
+          cd kernel_oneplus_sm8150
+          ZIP_NAME="Kernel-Caelum-${DEVICE_CODENAME}-${KERNEL_VERSION}-$(date +%d%m%Y).zip"
+          cp out/arch/arm64/boot/Image anykernel/
+          cd anykernel && zip -r9 $ZIP_NAME ./*
+          mv $ZIP_NAME ../../
+          echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
+      - name: 🤌 Copy zip file to get 2 different zip files
+        run: |
+          ZIP_ALTERNATIVE="KernelSU-Next-Caelum-${DEVICE_CODENAME}-latest.zip"
+          cp ${ZIP_NAME} $ZIP_ALTERNATIVE
+          echo "Copied ${ZIP_NAME} as $ZIP_ALTERNATIVE"
+          echo "ZIP_ALTERNATIVE=$ZIP_ALTERNATIVE" >> $GITHUB_ENV
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: AnyKernel3-master.zip
+          path: ${{ env.ZIP_ALTERNATIVE }}
+      - name: 📤 Publish github release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_ALTERNATIVE }}
+          tag_name: "latest"
+          draft: false
+          prerelease: false
