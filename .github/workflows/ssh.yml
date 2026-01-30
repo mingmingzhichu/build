@@ -1,6 +1,6 @@
 name: debugger-action
 on:
-  workflow_dispatch:  # 手动触发（在 GitHub Actions 页面点击“Run workflow”启动）
+  workflow_dispatch:
   
 jobs:
   build:
