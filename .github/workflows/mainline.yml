@@ -28,7 +28,7 @@ jobs:
               gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
           # 克隆内核源码和 Clang 工具链
           git clone https://gitlab.com/sm8150-mainline/linux.git -b v6.17.0-sm8150 kernel --depth=1
-          git clone https://mirrors.tuna.tsinghua.edu.cn/git/AOSP/platform/prebuilts/clang/host/linux-x86 -b  clang --depth=1
+          git clone https://mirrors.tuna.tsinghua.edu.cn/git/AOSP/platform/prebuilts/clang/host/linux-x86  clang --depth=1
           # 设置环境变量
           export KBUILD_BUILD_USER=mmzch
           export KBUILD_BUILD_HOST=localhost
