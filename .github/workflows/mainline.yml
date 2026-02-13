@@ -43,7 +43,7 @@ jobs:
           export LLVM_IAS=1
           # 进入内核目录并应用补丁
           cd kernel
-          ./scripts/kconfig/merge_config.sh defconfig hardening.config efi.config  sm8150.config O=../out
+          ./scripts/kconfig/merge_config.sh defconfig arch/arm64/configs/hardening.config arch/arm64/configs/efi.config  arch/arm64/configs/sm8150.config O=../out
           # 使用 Clang 编译内核
           make -j$(nproc --all) O=../out ARCH=arm64 \
               CC=clang \
