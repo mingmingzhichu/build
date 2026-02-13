@@ -43,9 +43,9 @@ jobs:
           export LLVM_IAS=1
           # 进入内核目录并应用补丁
           cd kernel
-          ./scripts/kconfig/merge_config.sh defconfig arch/arm64/configs/hardening.config arch/arm64/configs/efi.config  arch/arm64/configs/sm8150.config O=../out
+          ./scripts/kconfig/merge_config.sh defconfig arch/arm64/configs/hardening.config arch/arm64/configs/efi.config  arch/arm64/configs/sm8150.config
           # 使用 Clang 编译内核
-          make -j$(nproc --all) O=../out ARCH=arm64 \
+          make -j$(nproc --all) ARCH=arm64 \
               CC=clang \
               LD=ld.lld \
               AR=llvm-ar \
@@ -62,4 +62,4 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: master.zip
-          path: ~/out/arch/arm64/boot/
+          path: ~/kernel/arch/arm64/boot/
