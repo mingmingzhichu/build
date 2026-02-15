@@ -30,12 +30,11 @@ jobs:
       - name: Configure GRUB for aarch64 UEFI
         run: |
           cd grub-src
-          ./autogen.sh  # 生成配置文件
           ./configure \
             --target=aarch64 \          # 指定目标架构为aarch64
             --host=x86_64-linux-gnu \   # 宿主架构（Ubuntu runner为x86_64）
             --with-platform=efi \       # 平台为UEFI
-            --prefix=/tmp/grub-install  # 安装前缀（临时目录，避免污染系统）
+            --prefix=/tmp/grub-install  
 
       # 步骤5：编译GRUB源码
       - name: Compile GRUB
