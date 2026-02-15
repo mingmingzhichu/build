@@ -1,0 +1,63 @@
+name: Compile GRUB BOOTAA64.EFI (aarch64 UEFI)
+on:
+  workflow_dispatch:  # 手动触发（推荐，避免频繁编译）
+jobs:
+  compile-grub:
+    runs-on: ubuntu-latest  # 使用Ubuntu最新版，环境稳定
+    steps:
+      - name: Install build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            git \
+            build-essential \
+            bison \
+            flex \
+            libssl-dev \
+            libefivar-dev \
+            libefiboot-dev \
+            autopoint \
+            pkg-config \
+            grub-common \
+            crossbuild-essential-arm64  # aarch64交叉编译工具链
+
+      - name: Clone GRUB source code
+        run: |
+          git clone --depth=1 --branch=grub-2.12 https://git.savannah.gnu.org/git/grub.git grub-src
+          cd grub-src
+
+      # 步骤4：配置编译参数（针对aarch64 UEFI）
+      - name: Configure GRUB for aarch64 UEFI
+        run: |
+          cd grub-src
+          ./autogen.sh  # 生成配置文件
+          ./configure \
+            --target=aarch64 \          # 指定目标架构为aarch64
+            --host=x86_64-linux-gnu \   # 宿主架构（Ubuntu runner为x86_64）
+            --with-platform=efi \       # 平台为UEFI
+            --prefix=/tmp/grub-install  # 安装前缀（临时目录，避免污染系统）
+
+      # 步骤5：编译GRUB源码
+      - name: Compile GRUB
+        run: |
+          cd grub-src
+          make -j$(nproc)  # 多线程编译，加快速度
+
+      # 步骤6：生成BOOTAA64.EFI（GRUB的UEFI引导文件）
+      - name: Build BOOTAA64.EFI
+        run: |
+          cd grub-src
+          make install  # 安装到临时目录
+          # 生成最终的BOOTAA64.EFI（核心步骤）
+          grub-mkstandalone \
+            -O arm64-efi \              # 架构指定为arm64-efi（即aarch64 UEFI）
+            -o ./BOOTAA64.EFI \         # 输出文件名为BOOTAA64.EFI
+            "boot/grub/grub.cfg=/dev/null"  # 暂不嵌入grub.cfg（你可替换为自己的配置）
+
+      # 步骤7：上传编译产物（方便下载）
+      - name: Upload BOOTAA64.EFI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BOOTAA64-EFI-aarch64
+          path: grub-src/BOOTAA64.EFI
+          retention-days: 30  # 产物保留30天，可根据需要调整
