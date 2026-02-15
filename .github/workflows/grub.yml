@@ -23,8 +23,10 @@ jobs:
 
       - name: Clone GRUB source code
         run: |
-          git clone --depth=1 --branch=grub-2.12 https://git.savannah.gnu.org/git/grub.git grub-src
-          cd grub-src
+          wget https://ftp.gnu.org/gnu/grub/grub-2.14.tar.gz -O grub-2.14.tar.gz
+          # 解压源码包（创建grub-src目录）
+          mkdir -p grub-src
+          tar -zxvf grub-2.14.tar.gz -C grub-src --strip-components=1
 
       # 步骤4：配置编译参数（针对aarch64 UEFI）
       - name: Configure GRUB for aarch64 UEFI
