@@ -44,7 +44,7 @@ jobs:
           echo "CONFIG_EFI_STUB=y" >> ~/kernel/arch/arm64/configs/defconfig
           make ARCH=arm64 defconfig sm8150.config 
           # 使用 Clang 编译内核
-          make -j$(nproc --all) ARCH=arm64\
+          make -j$(nproc --all) ARCH=arm64 deb-pkg\
               CC=clang \
               LD=ld.lld \
               AR=llvm-ar \
