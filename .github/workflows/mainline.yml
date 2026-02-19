@@ -18,7 +18,7 @@ jobs:
           cd ~
           sudo apt update
           # 更新源并安装依赖（包含缺失的 debhelper-compat=12 和 libssl-dev）
-          apt update && apt install -y debhelper-compat=12 libssl-dev gcc-aarch64-linux-gnu crossbuild-essential-arm64 fakeroot dpkg-dev
+          sudo apt update && apt install -y debhelper-compat=12 libssl-dev gcc-aarch64-linux-gnu crossbuild-essential-arm64 fakeroot dpkg-dev
           # 安装必要的依赖
           sudo apt install -y curl axel git build-essential flex bison libssl-dev libncurses5-dev libelf-dev bc python3 rsync file
           # 安装 aarch64 和 arm32 交叉编译工具链
