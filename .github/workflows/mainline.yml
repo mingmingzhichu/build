@@ -56,7 +56,11 @@ jobs:
               CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
               LLVM=1 \
               LLVM_IAS=1
+           cp linux-*.deb ~/kernel/arch/arm64/boot/
            cp .config ~/kernel/arch/arm64/boot/
+           cp ~/kernel/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb ~/kernel/arch/arm64/boot/
+           cd ~/kernel/arch/arm64/boot/
+           rm Makefile dts -rf
       - name: Upload
         uses: actions/upload-artifact@v6
         with:
