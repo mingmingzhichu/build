@@ -28,15 +28,12 @@ jobs:
           sudo bash -c '
             # 清空旧源
             echo "" > /etc/apt/sources.list
-            # 追加 amd64 源
-            echo "deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse" >> /etc/apt/sources.list
-            echo "deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list
-            echo "deb http://archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse" >> /etc/apt/sources.list
             # 追加 arm64 源
             echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse" >> /etc/apt/sources.list
             echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list
             echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse" >> /etc/apt/sources.list
           '
+          sudo apt update
           sudo apt install -y --reinstall libssl-dev libssl-dev:arm64
           git clone https://gitlab.com/sm8150-mainline/linux.git kernel --depth=1
           git clone https://gitlab.com/alphadroid-project/prebuilts_clang_host_linux-x86_clang-r547379.git  clang --depth=1 
