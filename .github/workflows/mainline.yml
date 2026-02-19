@@ -24,6 +24,7 @@ jobs:
           # 安装 aarch64 和 arm32 交叉编译工具链
           sudo apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
           # 克隆内核源码和 Clang 工具链
+          sudo apt install -y --reinstall libssl-dev libssl-dev:arm64
           git clone https://gitlab.com/sm8150-mainline/linux.git kernel --depth=1
           git clone https://gitlab.com/alphadroid-project/prebuilts_clang_host_linux-x86_clang-r547379.git  clang --depth=1 
           # 设置环境变量
