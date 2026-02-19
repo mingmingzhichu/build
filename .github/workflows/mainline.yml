@@ -55,7 +55,7 @@ jobs:
           make ARCH=arm64 defconfig sm8150.config 
           # 使用 Clang 编译内核
           make -j$(nproc --all) ARCH=arm64 CC=clang CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 deb-pkg
-           cp linux-*.deb ~/kernel/arch/arm64/boot/
+           cp ../linux-*.deb ~/kernel/arch/arm64/boot/
            cp .config ~/kernel/arch/arm64/boot/
            cp ~/kernel/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb ~/kernel/arch/arm64/boot/
            cd ~/kernel/arch/arm64/boot/
