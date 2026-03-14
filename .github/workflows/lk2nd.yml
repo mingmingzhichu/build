@@ -1,0 +1,34 @@
+name: Build postmarketOS lk2nd for hotdogb
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout postmarketOS lk2nd
+        uses: actions/checkout@v4
+        with:
+          repository: postmarketOS/lk2nd
+          ref: master
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            build-essential \
+            gcc-aarch64-linux-gnu \
+            device-tree-compiler
+
+      - name: Build lk2nd-hotdogb
+        run: |
+          make -j$(nproc) \
+            TOOLCHAIN_PREFIX=aarch64-linux-gnu- \
+            lk2nd-sm8150-hotdogb
+
+      - name: Upload lk2nd.img
+        uses: actions/upload-artifact@v4
+        with:
+          name: lk2nd-hotdogb-post
+          path: build-lk2nd-sm8150-hotdogb/lk2nd.img
