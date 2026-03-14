@@ -1,4 +1,4 @@
-name: Build lk2nd via pmbootstrap
+name: Build postmarketOS lk2nd for hotdogb
 
 on:
   workflow_dispatch:
@@ -7,28 +7,29 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Install pmbootstrap
+      - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip
-          pip3 install pmbootstrap
+          sudo apt install -y \
+            build-essential \
+            gcc-aarch64-linux-gnu \
+            device-tree-compiler \
+            git
 
-      - name: Init pmbootstrap for hotdogb
+      - name: Clone postmarketOS lk2nd
         run: |
-          pmbootstrap init --device=oneplus-hotdogb --ui=none
+          git clone https://gitlab.com/postmarketOS/lk2nd.git
+          cd lk2nd
 
-      - name: Build lk2nd package
+      - name: Build lk2nd for hotdogb
         run: |
-          pmbootstrap build --force lk2nd
-
-      - name: Extract lk2nd.img
-        run: |
-          pmbootstrap export
-          mkdir -p dist
-          cp ~/.local/var/pmbootstrap/chroot_rootfs_*/boot/lk2nd.img dist/ 2>/dev/null || true
+          cd lk2nd
+          make -j$(nproc) \
+            TOOLCHAIN_PREFIX=aarch64-linux-gnu- \
+            lk2nd-sm8150-hotdogb
 
       - name: Upload lk2nd.img
         uses: actions/upload-artifact@v4
         with:
-          name: lk2nd-hotdogb-post-official
-          path: dist/lk2nd.img
+          name: lk2nd-hotdogb
+          path: lk2nd/build-lk2nd-sm8150-hotdogb/lk2nd.img
