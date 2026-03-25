@@ -34,7 +34,7 @@ jobs:
       - name: Generate diff patch (exclude special dirs/files)
         run: |
           # 直接写死排除项，按需增删--exclude行，空格/换行分隔均可
-          diff -Naur ${{ env.BASE_REPO }} ${{ env.TARGET_REPO }} > /home/runner/work/repo-compare.patch
+          diff -Naur /home/runner/work/repo-base /home/runner/work/repo-target  > /home/runner/work/repo-compare.patch
           
           # 日志打印patch信息，便于排查
           echo "===== Patch File Info ====="
