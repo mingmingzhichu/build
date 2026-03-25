@@ -17,13 +17,13 @@ jobs:
       # 步骤2：git clone 基准仓库（对比基准，直接改仓库地址/分支）
       - name: Clone base repository
         run: |
-          git clone --depth=1 -b sixteen https://github.com/yaap/kernel_oneplus_sm8150.git ${{ env.BASE_REPO }}
+          git clone --depth=1 -b sixteen https://github.com/yaap/kernel_oneplus_sm8150.git ~/repo-base
           # --depth 1：浅克隆（提速），--branch 后跟基准分支，替换为实际值
 
       # 步骤3：git clone 对比仓库（要找差异的仓库，直接改仓库地址/分支）
       - name: Clone target repository
         run: |
-          git clone --depth=1 -b sixteen https://github.com/mingmingzhichu/kernel_oneplus_sm8150.git ${{ env.TARGET_REPO }}
+          git clone --depth=1 -b sixteen https://github.com/mingmingzhichu/kernel_oneplus_sm8150.git ~/repo-target
           # 替换为实际的对比仓库地址和分支
 
       # 步骤4：安装diffutils（生成patch必备工具，ubuntu基础镜像可能无）
@@ -34,7 +34,7 @@ jobs:
       - name: Generate diff patch (exclude special dirs/files)
         run: |
           # 直接写死排除项，按需增删--exclude行，空格/换行分隔均可
-          diff -Naur /home/runner/work/repo-base /home/runner/work/repo-target  > /home/runner/work/repo-compare.patch
+          diff -Naur ~/repo-base ~/repo-target  > /home/runner/work/repo-compare.patch
           
           # 日志打印patch信息，便于排查
           echo "===== Patch File Info ====="
