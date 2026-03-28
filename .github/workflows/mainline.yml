@@ -35,7 +35,7 @@ jobs:
           '
           sudo apt update
           sudo apt install -y --reinstall libssl-dev libssl-dev:arm64
-          git clone https://gitlab.com/sm8150-mainline/linux.git kernel --depth=1 -b v6.17.0-sm8150
+          git clone https://gitlab.com/sm8150-mainline/linux.git kernel --depth=1 -b v6.14.0-sm8150
           git clone https://gitlab.com/alphadroid-project/prebuilts_clang_host_linux-x86_clang-r547379.git  clang --depth=1 
           # 设置环境变量
           export KBUILD_BUILD_USER=mmzch
