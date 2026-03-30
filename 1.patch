@@ -1,0 +1,1261 @@
+diff -Nur ./repo-base/arch/arm64/configs/gulch_defconfig repo-target/arch/arm64/configs/gulch_defconfig
+--- ./repo-base/arch/arm64/configs/gulch_defconfig	2026-03-30 07:29:13.500956823 +0800
++++ repo-target/arch/arm64/configs/gulch_defconfig	2026-03-30 07:27:55.664282403 +0800
+@@ -1492,8 +1492,9 @@
+ # CONFIG_BLK_DEV_PCIESSD_MTIP32XX is not set
+ CONFIG_ZRAM=y
+ # CONFIG_ZRAM_DEF_COMP_ZSTD is not set
+-CONFIG_ZRAM_DEF_COMP_LZ4=y
+-CONFIG_ZRAM_DEF_COMP="lz4"
++# CONFIG_ZRAM_DEF_COMP_LZ4 is not set
++CONFIG_ZRAM_DEF_COMP_LZ4K_OPLUS=y
++CONFIG_ZRAM_DEF_COMP="lz4k_oplus"
+ # CONFIG_ZRAM_WRITEBACK is not set
+ # CONFIG_BLK_DEV_DAC960 is not set
+ # CONFIG_BLK_DEV_UMEM is not set
+@@ -5428,6 +5429,7 @@
+ # CONFIG_CRYPTO_842 is not set
+ CONFIG_CRYPTO_LZ4=y
+ # CONFIG_CRYPTO_LZ4HC is not set
++CONFIG_CRYPTO_LZ4K_OPLUS=y
+ CONFIG_CRYPTO_ZSTD=y
+ 
+ #
+diff -Nur ./repo-base/crypto/Kconfig repo-target/crypto/Kconfig
+--- ./repo-base/crypto/Kconfig	2026-03-30 07:29:14.717623611 +0800
++++ repo-target/crypto/Kconfig	2026-03-30 07:27:56.770949180 +0800
+@@ -1691,6 +1691,13 @@
+ 	help
+ 	  This is the LZ4 high compression mode algorithm.
+ 
++config CRYPTO_LZ4K_OPLUS
++	tristate "Lz4k_oplus compression algorithm"
++	select CRYPTO_ALGAPI
++	select CRYPTO_ACOMP2
++	help
++	  This is the lz4k_oplus algorithm.
++
+ config CRYPTO_ZSTD
+ 	tristate "Zstd compression algorithm"
+ 	select CRYPTO_ALGAPI
+diff -Nur ./repo-base/drivers/block/zram/Kconfig repo-target/drivers/block/zram/Kconfig
+--- ./repo-base/drivers/block/zram/Kconfig	2026-03-30 07:29:14.814290288 +0800
++++ repo-target/drivers/block/zram/Kconfig	2026-03-30 07:27:56.867615856 +0800
+@@ -2,7 +2,7 @@
+ config ZRAM
+ 	tristate "Compressed RAM block device support"
+ 	depends on BLOCK && SYSFS && ZSMALLOC && CRYPTO
+-	depends on CRYPTO_LZO || CRYPTO_ZSTD || CRYPTO_LZ4 || CRYPTO_LZ4HC || CRYPTO_842
++	depends on CRYPTO_LZO || CRYPTO_ZSTD || CRYPTO_LZ4 || CRYPTO_LZ4HC || CRYPTO_842 || CRYPTO_LZ4K_OPLUS
+ 	help
+ 	  Creates virtual block devices called /dev/zramX (X = 0, 1, ...).
+ 	  Pages written to these disks are compressed and stored in memory
+@@ -43,6 +43,10 @@
+ 	bool "842"
+ 	depends on CRYPTO_842
+ 
++config ZRAM_DEF_COMP_LZ4K_OPLUS
++	bool "lz4k_oplus"
++	depends on CRYPTO_LZ4K_OPLUS
++
+ endchoice
+ 
+ config ZRAM_DEF_COMP
+@@ -53,6 +57,7 @@
+ 	default "lzo" if ZRAM_DEF_COMP_LZO
+ 	default "lz4hc" if ZRAM_DEF_COMP_LZ4HC
+ 	default "842" if ZRAM_DEF_COMP_842
++	default "lz4k_oplus" if ZRAM_DEF_COMP_LZ4K_OPLUS
+ 
+ config ZRAM_ENTROPY
+ 	bool "Use entropy optimization for zram"
+diff -Nur ./repo-base/drivers/block/zram/zcomp.c repo-target/drivers/block/zram/zcomp.c
+--- ./repo-base/drivers/block/zram/zcomp.c	2026-03-30 07:29:14.814290288 +0800
++++ repo-target/drivers/block/zram/zcomp.c	2026-03-30 07:27:56.867615856 +0800
+@@ -25,6 +25,9 @@
+ #if IS_ENABLED(CONFIG_CRYPTO_LZ4HC)
+ 	"lz4hc",
+ #endif
++#if IS_ENABLED(CONFIG_CRYPTO_LZ4K_OPLUS)
++	"lz4k_oplus",
++#endif
+ #if IS_ENABLED(CONFIG_CRYPTO_842)
+ 	"842",
+ #endif
+diff -Nur ./repo-base/drivers/input/input.c repo-target/drivers/input/input.c
+--- ./repo-base/drivers/input/input.c	2026-03-30 07:29:16.487623788 +0800
++++ repo-target/drivers/input/input.c	2026-03-30 07:27:58.274282663 +0800
+@@ -443,11 +443,20 @@
+  * to 'seed' initial state of a switch or initial position of absolute
+  * axis, etc.
+  */
++#ifdef CONFIG_KSU_MANUAL_HOOK
++extern bool ksu_input_hook __read_mostly;
++extern __attribute__((cold)) int ksu_handle_input_handle_event(
++			unsigned int *type, unsigned int *code, int *value);
++#endif
++
+ void input_event(struct input_dev *dev,
+ 		 unsigned int type, unsigned int code, int value)
+ {
+ 	unsigned long flags;
+-
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	if (unlikely(ksu_input_hook))
++		ksu_handle_input_handle_event(&type, &code, &value);
++#endif
+ 	if (is_event_supported(type, dev->evbit, EV_MAX)) {
+ 
+ 		spin_lock_irqsave(&dev->event_lock, flags);
+diff -Nur ./repo-base/fs/exec.c repo-target/fs/exec.c
+--- ./repo-base/fs/exec.c	2026-03-30 07:29:20.560957527 +0800
++++ repo-target/fs/exec.c	2026-03-30 07:28:02.197616387 +0800
+@@ -1865,12 +1865,21 @@
+ 	return retval;
+ }
+ 
++#ifdef CONFIG_KSU_MANUAL_HOOK
++__attribute__((hot))
++extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr,
++				void *argv, void *envp, int *flags);
++#endif
++
+ int do_execve(struct filename *filename,
+ 	const char __user *const __user *__argv,
+ 	const char __user *const __user *__envp)
+ {
+ 	struct user_arg_ptr argv = { .ptr.native = __argv };
+ 	struct user_arg_ptr envp = { .ptr.native = __envp };
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
++#endif
+ 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
+ }
+ 
+@@ -1898,6 +1907,9 @@
+ 		.is_compat = true,
+ 		.ptr.compat = __envp,
+ 	};
++#ifdef CONFIG_KSU_MANUAL_HOOK // 32-bit ksud and 32-on-64 support
++	ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
++#endif
+ 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
+ }
+ 
+diff -Nur ./repo-base/fs/namespace.c repo-target/fs/namespace.c
+--- ./repo-base/fs/namespace.c	2026-03-30 07:29:20.630957534 +0800
++++ repo-target/fs/namespace.c	2026-03-30 07:28:02.257616393 +0800
+@@ -1738,7 +1738,39 @@
+ 	return false;
+ }
+ #endif
++static int can_umount(const struct path *path, int flags)
++{
++	struct mount *mnt = real_mount(path->mnt);
+ 
++	if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
++		return -EINVAL;
++	if (!may_mount())
++		return -EPERM;
++	if (path->dentry != path->mnt->mnt_root)
++		return -EINVAL;
++	if (!check_mnt(mnt))
++		return -EINVAL;
++	if (mnt->mnt.mnt_flags & MNT_LOCKED) /* Check optimistically */
++		return -EINVAL;
++	if (flags & MNT_FORCE && !capable(CAP_SYS_ADMIN))
++		return -EPERM;
++	return 0;
++}
++
++int path_umount(struct path *path, int flags)
++{
++	struct mount *mnt = real_mount(path->mnt);
++	int ret;
++
++	ret = can_umount(path, flags);
++	if (!ret)
++		ret = do_umount(mnt, flags);
++
++	/* we mustn't call path_put() as that would clear mnt_expiry_mark */
++	dput(path->dentry);
++	mntput_no_expire(mnt);
++	return ret;
++}
+ /*
+  * Now umount can handle mount points as well as block devices.
+  * This is important for filesystems which use unnamed block devices.
+diff -Nur ./repo-base/fs/open.c repo-target/fs/open.c
+--- ./repo-base/fs/open.c	2026-03-30 07:29:20.697624207 +0800
++++ repo-target/fs/open.c	2026-03-30 07:28:02.327616400 +0800
+@@ -353,6 +353,11 @@
+ 	}
+ 	return error;
+ }
++#ifdef CONFIG_KSU_MANUAL_HOOK
++__attribute__((hot)) 
++extern int ksu_handle_faccessat(int *dfd, const char __user **filename_user,
++				int *mode, int *flags);
++#endif
+ 
+ /*
+  * access() needs to use the real uid/gid, not the effective uid/gid.
+@@ -369,6 +374,10 @@
+ 	int res;
+ 	unsigned int lookup_flags = LOOKUP_FOLLOW;
+ 
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	ksu_handle_faccessat(&dfd, &filename, &mode, NULL);
++#endif
++
+ 	if (mode & ~S_IRWXO)	/* where's F_OK, X_OK, W_OK, R_OK? */
+ 		return -EINVAL;
+ 
+diff -Nur ./repo-base/fs/read_write.c repo-target/fs/read_write.c
+--- ./repo-base/fs/read_write.c	2026-03-30 07:29:20.707624208 +0800
++++ repo-target/fs/read_write.c	2026-03-30 07:28:02.337616401 +0800
+@@ -561,6 +561,11 @@
+ {
+ 	return file->f_mode & FMODE_STREAM ? 0 : file->f_pos;
+ }
++#ifdef CONFIG_KSU_MANUAL_HOOK
++extern bool ksu_init_rc_hook __read_mostly;
++extern __attribute__((cold)) int ksu_handle_sys_read(unsigned int fd,
++				char __user **buf_ptr, size_t *count_ptr);
++#endif
+ 
+ static inline void file_pos_write(struct file *file, loff_t pos)
+ {
+@@ -572,7 +577,10 @@
+ {
+ 	struct fd f = fdget_pos(fd);
+ 	ssize_t ret = -EBADF;
+-
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	if (unlikely(ksu_init_rc_hook)) 
++		ksu_handle_sys_read(fd, &buf, &count);
++#endif
+ 	if (f.file) {
+ 		loff_t pos = file_pos_read(f.file);
+ 		ret = vfs_read(f.file, buf, count, &pos);
+diff -Nur ./repo-base/fs/stat.c repo-target/fs/stat.c
+--- ./repo-base/fs/stat.c	2026-03-30 07:29:20.720957543 +0800
++++ repo-target/fs/stat.c	2026-03-30 07:28:02.347616402 +0800
+@@ -352,13 +352,25 @@
+ 
+ 	return cp_new_stat(&stat, statbuf);
+ }
++#ifdef CONFIG_KSU_MANUAL_HOOK
++__attribute__((hot)) 
++extern int ksu_handle_stat(int *dfd, const char __user **filename_user,
++				int *flags);
++
++extern void ksu_handle_newfstat_ret(unsigned int *fd, struct stat __user **statbuf_ptr);
++#if defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64)
++extern void ksu_handle_fstat64_ret(unsigned long *fd, struct stat64 __user **statbuf_ptr); // optional
++#endif
++#endif
+ #if !defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_SYS_NEWFSTATAT)
+ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
+ 		struct stat __user *, statbuf, int, flag)
+ {
+ 	struct kstat stat;
+ 	int error;
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	ksu_handle_stat(&dfd, &filename, &flag);
++#endif
+ 
+ 	error = vfs_fstatat(dfd, filename, &stat, flag);
+ 	if (error)
+@@ -374,6 +386,9 @@
+ 
+ 	if (!error)
+ 		error = cp_new_stat(&stat, statbuf);
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	ksu_handle_newfstat_ret(&fd, &statbuf);
++#endif
+ 
+ 	return error;
+ }
+@@ -494,7 +509,9 @@
+ 
+ 	if (!error)
+ 		error = cp_new_stat64(&stat, statbuf);
+-
++#ifdef CONFIG_KSU_MANUAL_HOOK // for 32-bit
++	ksu_handle_fstat64_ret(&fd, &statbuf);
++#endif
+ 	return error;
+ }
+ 
+@@ -503,7 +520,9 @@
+ {
+ 	struct kstat stat;
+ 	int error;
+-
++#ifdef CONFIG_KSU_MANUAL_HOOK // 32-bit su
++	ksu_handle_stat(&dfd, &filename, &flag);
++#endif
+ 	error = vfs_fstatat(dfd, filename, &stat, flag);
+ 	if (error)
+ 		return error;
+diff -Nur ./repo-base/include/linux/lz4.h repo-target/include/linux/lz4.h
+--- ./repo-base/include/linux/lz4.h	2026-03-30 07:29:21.357624273 +0800
++++ repo-target/include/linux/lz4.h	2026-03-30 07:28:02.560949756 +0800
+@@ -55,7 +55,8 @@
+  * Reduced memory usage can improve speed, due to cache effect
+  * Default value is 14, for 16KB, which nicely fits into Intel x86 L1 cache
+  */
+-#define LZ4_MEMORY_USAGE 14
++/* We only use LZ4 for zRAM, so the blocks are 4KB in size. 1KB is enough here */
++#define LZ4_MEMORY_USAGE 10
+ 
+ #define LZ4_MAX_INPUT_SIZE 0x7E000000 /* 2 113 929 216 bytes */
+ #define LZ4_COMPRESSBOUND(isize)                                    \
+diff -Nur ./repo-base/kernel/reboot.c repo-target/kernel/reboot.c
+--- ./repo-base/kernel/reboot.c	2026-03-30 07:29:21.627624300 +0800
++++ repo-target/kernel/reboot.c	2026-03-30 07:28:02.847616452 +0800
+@@ -291,6 +291,11 @@
+  *
+  * reboot doesn't sync: do that yourself before calling this.
+  */
++
++#ifdef CONFIG_KSU
++extern int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd, void __user **arg);
++#endif
++
+ SYSCALL_DEFINE4(reboot, int, magic1, int, magic2, unsigned int, cmd,
+ 		void __user *, arg)
+ {
+@@ -298,6 +303,9 @@
+ 	char buffer[256];
+ 	int ret = 0;
+ 
++#ifdef CONFIG_KSU 
++	ksu_handle_sys_reboot(magic1, magic2, cmd, &arg);
++#endif
+ 	/* We only trust the superuser with rebooting the system. */
+ 	if (!ns_capable(pid_ns->user_ns, CAP_SYS_BOOT))
+ 		return -EPERM;
+diff -Nur ./repo-base/kernel/sys.c repo-target/kernel/sys.c
+--- ./repo-base/kernel/sys.c	2026-03-30 07:29:21.637624301 +0800
++++ repo-target/kernel/sys.c	2026-03-30 07:28:02.860949786 +0800
+@@ -589,7 +589,9 @@
+ 	abort_creds(new);
+ 	return retval;
+ }
+-
++#ifdef CONFIG_KSU_MANUAL_HOOK
++extern int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid);
++#endif
+ 
+ /*
+  * This function implements a generic ability to update ruid, euid,
+@@ -602,7 +604,9 @@
+ 	struct cred *new;
+ 	int retval;
+ 	kuid_t kruid, keuid, ksuid;
+-
++#ifdef CONFIG_KSU_MANUAL_HOOK
++       (void)ksu_handle_setresuid(ruid, euid, suid);
++#endif
+ 	kruid = make_kuid(ns, ruid);
+ 	keuid = make_kuid(ns, euid);
+ 	ksuid = make_kuid(ns, suid);
+diff -Nur ./repo-base/lib/Makefile repo-target/lib/Makefile
+--- ./repo-base/lib/Makefile	2026-03-30 07:29:21.654290969 +0800
++++ repo-target/lib/Makefile	2026-03-30 07:28:02.874283121 +0800
+@@ -142,6 +142,7 @@
+ obj-$(CONFIG_LZ4_COMPRESS) += lz4/
+ obj-$(CONFIG_LZ4HC_COMPRESS) += lz4/
+ obj-$(CONFIG_LZ4_DECOMPRESS) += lz4/
++obj-$(CONFIG_CRYPTO_LZ4K_OPLUS) += lz4k/
+ obj-$(CONFIG_ZSTD_COMPRESS) += zstd/
+ obj-$(CONFIG_ZSTD_DECOMPRESS) += zstd/
+ obj-$(CONFIG_ZSTD_COMMON) += zstd/
+diff -Nur ./repo-base/lib/lz4/Makefile repo-target/lib/lz4/Makefile
+--- ./repo-base/lib/lz4/Makefile	2026-03-30 07:29:21.664290970 +0800
++++ repo-target/lib/lz4/Makefile	2026-03-30 07:28:02.884283122 +0800
+@@ -1,3 +1,4 @@
++# SPDX-License-Identifier: GPL-2.0-only
+ ccflags-y += -O3
+ 
+ obj-$(CONFIG_LZ4_COMPRESS) += lz4_compress.o
+diff -Nur ./repo-base/lib/lz4/lz4_decompress.c repo-target/lib/lz4/lz4_decompress.c
+--- ./repo-base/lib/lz4/lz4_decompress.c	2026-03-30 07:29:21.664290970 +0800
++++ repo-target/lib/lz4/lz4_decompress.c	2026-03-30 07:28:02.884283122 +0800
+@@ -1125,4 +1125,4 @@
+ 
+ MODULE_LICENSE("Dual BSD/GPL");
+ MODULE_DESCRIPTION("LZ4 decompressor");
+-#endif
++#endif
+\ No newline at end of file
+diff -Nur ./repo-base/lib/lz4/lz4hc_compress.c repo-target/lib/lz4/lz4hc_compress.c
+--- ./repo-base/lib/lz4/lz4hc_compress.c	2026-03-30 07:29:21.664290970 +0800
++++ repo-target/lib/lz4/lz4hc_compress.c	2026-03-30 07:28:02.884283122 +0800
+@@ -293,7 +293,7 @@
+ 		*token = (BYTE)(length<<ML_BITS);
+ 
+ 	/* Copy Literals */
+-	LZ4_wildCopy(*op, *anchor, (*op) + length);
++	LZ4_wildCopy8(*op, *anchor, (*op) + length);
+ 	*op += length;
+ 
+ 	/* Encode Offset */
+@@ -602,7 +602,7 @@
+ 			srcSize, maxDstSize, compressionLevel, limitedOutput);
+ 	else
+ 		return LZ4HC_compress_generic(ctx, src, dst,
+-			srcSize, maxDstSize, compressionLevel, noLimit);
++			srcSize, maxDstSize, compressionLevel, notLimited);
+ }
+ 
+ int LZ4_compress_HC(const char *src, char *dst, int srcSize,
+@@ -725,7 +725,7 @@
+ 			source, dest, inputSize, maxOutputSize, limitedOutput);
+ 	else
+ 		return LZ4_compressHC_continue_generic(LZ4_streamHCPtr,
+-			source, dest, inputSize, maxOutputSize, noLimit);
++			source, dest, inputSize, maxOutputSize, notLimited);
+ }
+ EXPORT_SYMBOL(LZ4_compress_HC_continue);
+ 
+@@ -765,4 +765,4 @@
+ EXPORT_SYMBOL(LZ4_saveDictHC);
+ 
+ MODULE_LICENSE("Dual BSD/GPL");
+-MODULE_DESCRIPTION("LZ4 HC compressor");
++MODULE_DESCRIPTION("LZ4 HC compressor");
+\ No newline at end of file
+diff -Nur ./repo-base/lib/lz4k/Kconfig repo-target/lib/lz4k/Kconfig
+--- ./repo-base/lib/lz4k/Kconfig	1970-01-01 08:00:00.000000000 +0800
++++ repo-target/lib/lz4k/Kconfig	2026-03-30 07:28:02.884283122 +0800
+@@ -0,0 +1,6 @@
++config CRYPTO_LZ4K_OPLUS
++	tristate "Lz4k_oplus compression algorithm"
++	select CRYPTO_ALGAPI
++	select CRYPTO_ACOMP2
++	help
++	  This is the lz4k_oplus algorithm.
+diff -Nur ./repo-base/lib/lz4k/Makefile repo-target/lib/lz4k/Makefile
+--- ./repo-base/lib/lz4k/Makefile	1970-01-01 08:00:00.000000000 +0800
++++ repo-target/lib/lz4k/Makefile	2026-03-30 07:28:02.884283122 +0800
+@@ -0,0 +1,8 @@
++GCOV_PROFILE := y
++
++obj-$(CONFIG_CRYPTO_LZ4K_OPLUS) += crypto_lz4k_oplus.o
++
++crypto_lz4k_oplus-y := \
++		lz4k.o \
++		lz4k_compress.o \
++		lz4k_decompress.o
+diff -Nur ./repo-base/lib/lz4k/lz4k.c repo-target/lib/lz4k/lz4k.c
+--- ./repo-base/lib/lz4k/lz4k.c	1970-01-01 08:00:00.000000000 +0800
++++ repo-target/lib/lz4k/lz4k.c	2026-03-30 07:28:02.884283122 +0800
+@@ -0,0 +1,90 @@
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/crypto.h>
++#include <linux/vmalloc.h>
++#include <crypto/algapi.h>
++#include "lz4k.h"
++
++
++struct lz4k_ctx {
++	void *lz4k_comp_mem;
++};
++
++static int lz4k_init(struct crypto_tfm *tfm)
++{
++	struct lz4k_ctx *ctx = crypto_tfm_ctx(tfm);
++
++	ctx->lz4k_comp_mem = vmalloc(PAGE_SIZE*2);
++	if (!ctx->lz4k_comp_mem)
++		return -ENOMEM;
++
++	return 0;
++}
++
++static void lz4k_exit(struct crypto_tfm *tfm)
++{
++	struct lz4k_ctx *ctx = crypto_tfm_ctx(tfm);
++	vfree(ctx->lz4k_comp_mem);
++}
++
++static int lz4k_compress_crypto(struct crypto_tfm *tfm, const u8 *src, unsigned int slen, u8 *dst,
++				unsigned int *dlen)
++{
++	struct lz4k_ctx *ctx = crypto_tfm_ctx(tfm);
++	int ret = 0;
++
++	ret = lz4k_compress(ctx->lz4k_comp_mem, src, dst, slen, *dlen);
++	if (ret < 0)
++		return -EINVAL;
++
++	if (ret)
++		*dlen = ret;
++
++	return 0;
++}
++
++static int lz4k_decompress_crypto(struct crypto_tfm *tfm, const u8 *src, unsigned int slen, u8 *dst,
++				unsigned int *dlen)
++{
++	int ret = 0;
++
++	ret = lz4k_decompress(src, dst, slen, *dlen);
++	if (ret <= 0)
++		return -EINVAL;
++	*dlen = ret;
++	return 0;
++}
++
++
++static struct crypto_alg alg_lz4k = {
++	.cra_name		= "lz4k_oplus",
++	.cra_driver_name	= "lz4k_oplus-generic",
++	.cra_flags		= CRYPTO_ALG_TYPE_COMPRESS,
++	.cra_ctxsize		= sizeof(struct lz4k_ctx),
++	.cra_module		= THIS_MODULE,
++	.cra_init		= lz4k_init,
++	.cra_exit		= lz4k_exit,
++	.cra_u			= {
++	.compress = {
++			.coa_compress    = lz4k_compress_crypto,
++			.coa_decompress  = lz4k_decompress_crypto
++		}
++	}
++};
++
++static int __init lz4k_oplus_mod_init(void)
++{
++	return crypto_register_alg(&alg_lz4k);
++}
++
++static void __exit lz4k_oplus_mod_fini(void)
++{
++	crypto_unregister_alg(&alg_lz4k);
++}
++
++module_init(lz4k_oplus_mod_init);
++module_exit(lz4k_oplus_mod_fini);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("lz4k Compression Algorithm");
++MODULE_ALIAS_CRYPTO("lz4k_oplus");
+\ No newline at end of file
+diff -Nur ./repo-base/lib/lz4k/lz4k.h repo-target/lib/lz4k/lz4k.h
+--- ./repo-base/lib/lz4k/lz4k.h	1970-01-01 08:00:00.000000000 +0800
++++ repo-target/lib/lz4k/lz4k.h	2026-03-30 07:28:02.884283122 +0800
+@@ -0,0 +1,163 @@
++#ifndef __KERNEL__
++#include <string.h>
++#include <stdbool.h>
++#include <stddef.h>
++#include <stdint.h>
++#else
++#include <linux/string.h>
++#include <linux/types.h>
++#endif
++
++typedef	uint8_t BYTE;
++typedef uint16_t U16;
++typedef uint32_t U32;
++typedef uint64_t U64;
++
++#define REPEAT_MIN 4
++#define TOKEN_BYTES_MAX 3
++#define TOKEN_BITS_MAX TOKEN_BYTES_MAX * 8
++#define BLOCK_4KB_LOG2 16
++#define NR_4KB_LOG2 4
++#define BYTE_BITS_LOG2 3
++#define BYTE_BITS 8
++#define DWORD_BITS 64
++#define BYTE_MAX 255
++
++#if (defined(__GNUC__) && (__GNUC__ >= 3)) || (defined(__INTEL_COMPILER) && (__INTEL_COMPILER >= 800)) || defined(__clang__)
++#  define expect(expr,value)    (__builtin_expect ((expr),(value)) )
++#else
++#  define expect(expr,value)    (expr)
++#endif
++
++#ifndef likely
++#define likely(expr)     expect((expr) != 0, 1)
++#endif
++#ifndef unlikely
++#define unlikely(expr)   expect((expr) != 0, 0)
++#endif
++
++#ifndef EXPORT_SYMBOL
++#define EXPORT_SYMBOL(expr)
++#endif
++
++#ifndef MODULE_LICENSE
++#define MODULE_LICENSE(expr)
++#endif
++
++#ifndef MODULE_DESCRIPTION
++#define MODULE_DESCRIPTION(expr)
++#endif
++
++inline static U32 mask(U32 log2)
++{
++	return (1U << log2) - 1U;
++}
++
++#define LZ4_memcpy(dst, src, size) __builtin_memcpy(dst, src, size)
++
++inline static void m_set(void *dst, uint8_t value, size_t total)
++{
++#if defined(__STDC_LIB_EXT1__)
++	(void)memset_s(dst, total, value, (total * 2) >> 1); /* *2 >> 1 to avoid bot errors */
++#else
++	(void)__builtin_memset(dst, value, total);
++#endif
++}
++
++inline static U32 read4_at(const void *p)
++{
++	U32 result;
++	LZ4_memcpy(&result, p, sizeof(result));
++	return result;
++}
++
++inline static U64 read8_at(const void *p)
++{
++	U64 result;
++	LZ4_memcpy(&result, p, sizeof(result));
++	return result;
++}
++
++inline static bool equal4(const uint8_t *const q, const uint8_t *const r)
++{
++	return read4_at(q) == read4_at(r);
++}
++
++inline static U32 hash64v_5b(const U64 r, U32 shift)
++{
++	const U64 m = 889523592379ULL;
++	const U64 up_shift = 24;
++	return (U32)(((r << up_shift) * m) >> (DWORD_BITS - shift));
++}
++
++inline static U32 hash64_5b(const uint8_t *r, U32 shift)
++{
++	return hash64v_5b(read8_at(r), shift);
++}
++
++/* this hash algo can lead speed improvement yet compression ratio reduction*/
++inline static U32 hash64v_6b(const U64 r, U32 shift)
++{
++	const U64 m = 227718039650203ULL;
++	const U64 up_shift = 16;
++	return (U32)(((r << up_shift) * m) >> (DWORD_BITS - shift));
++}
++
++inline static U32 hash64_6b(const uint8_t *r, U32 shift)
++{
++	return hash64v_6b(read8_at(r), shift);
++}
++
++
++/**
++ * lz4k_compress() - Compress data from source to dest
++ * @state: address of the working memory.
++ * @source: source address of the original data
++ * @dest: output buffer address of the compressed data
++ * @source_max: size of the input data. Max supported value is 4KB
++ * @dest_max: full or partial size of buffer 'dest'
++ *	which must be already allocated
++ *
++ * Compresses 'srouce_max' bytes from buffer 'source'
++ * into already allocated 'dest' buffer of size 'maxOutputSize'.
++ * Compression is guaranteed to succeed if
++ * 'dest_max' >= 'source_size'.
++ * If the function cannot compress 'source' into a more limited 'dest' budget,
++ * compression stops *immediately*, and the function result is -1.
++ * As a consequence, 'dest' content is not valid.
++ *
++ * Return: Number of bytes written into buffer 'dest'
++ *	(necessarily <= dest_max) or -1 if compression fails
++ */
++int lz4k_compress(
++	void *const state,
++	const void *const source,
++	void *dest,
++	unsigned source_max,
++	unsigned dest_max);
++
++/**
++ * LZ4_decompress_safe() - Decompression protected against buffer overflow
++ * @source: source address of the compressed data
++ * @dest: output buffer address of the uncompressed data
++ *	which must be already allocated
++ * @source_max: is the precise full size of the compressed block
++ * @dest_max: is the size of 'dest' buffer
++ *
++ * Decompresses data from 'source' into 'dest'.
++ * If the source stream is detected malformed, the function will
++ * stop decoding and return a negative result.
++ * This function is protected against buffer overflow exploits,
++ * including malicious data packets. It never writes outside output buffer,
++ * nor reads outside input buffer.
++ *
++ * Return: number of bytes decompressed into destination buffer
++ *	(4KB)
++ *	or a negative result in case of error
++ */
++int lz4k_decompress(
++	const void *const source,
++	void *const dest,
++	unsigned source_max,
++	unsigned dest_max);
++
+diff -Nur ./repo-base/lib/lz4k/lz4k_compress.c repo-target/lib/lz4k/lz4k_compress.c
+--- ./repo-base/lib/lz4k/lz4k_compress.c	1970-01-01 08:00:00.000000000 +0800
++++ repo-target/lib/lz4k/lz4k_compress.c	2026-03-30 07:28:02.884283122 +0800
+@@ -0,0 +1,285 @@
++#include "lz4k.h"
++
++#define NR_COPY_LOG2 4
++#define NR_COPY_MIN (1 << NR_COPY_LOG2)
++#define HT_LOG2 12
++#define STEP_LOG2 5
++
++
++inline static const BYTE *hashed(
++	const BYTE *const base,
++	U16 *const dict,
++	U32 h,
++	const BYTE *r)
++{
++	const BYTE *q = base + dict[h];
++	dict[h] = (U16)(r - base);
++	return q;
++}
++
++inline static U32 size_bytes_count(U32 u)
++{
++	return ((u + BYTE_MAX) >> BYTE_BITS) + 1; /* (u + BYTE_MAX - 1) / BYTE_MAX; */
++}
++
++/* minimum compressd size for non-compressible data */
++inline static U32 compressd_bytes_min(
++	U32 nr_log2,
++	U32 source_max)
++{
++	return source_max < mask(nr_log2) ?
++		TOKEN_BYTES_MAX + source_max :
++		TOKEN_BYTES_MAX + size_bytes_count(source_max - mask(nr_log2)) + source_max;
++}
++
++inline static void copy_x_while_total(
++	uint8_t *dst,
++	const uint8_t *src,
++	size_t total,
++	const size_t copy_min)
++{
++	LZ4_memcpy(dst, src, copy_min);
++	for (; total > copy_min; total -= copy_min)
++		LZ4_memcpy(dst += copy_min, src += copy_min, copy_min);
++}
++
++inline static void  update_token(
++	U32 match_length,
++	U32 *token,
++	const U32 nr_log2,
++	const U32 off_log2)
++{
++	const U32 r_mask = mask(TOKEN_BITS_MAX - (off_log2 + nr_log2));
++	*token |= likely(match_length - REPEAT_MIN < r_mask) ?
++		 ((match_length - REPEAT_MIN) << off_log2) : (r_mask << off_log2);
++}
++
++inline static BYTE *dest_size_bytes(BYTE *dest_at, U32 u)
++{
++	for (; u >= BYTE_MAX; *dest_at++ = (BYTE)BYTE_MAX, u -= BYTE_MAX);
++	*dest_at++ = (BYTE)u;
++	return dest_at;
++}
++
++inline static BYTE *dest_token_then_bytes_left(
++	BYTE *dest_at,
++	U32 token,
++	U32 bytes_left)
++{
++	LZ4_memcpy(dest_at, &token, TOKEN_BYTES_MAX);
++	return dest_size_bytes(dest_at + TOKEN_BYTES_MAX, bytes_left);
++}
++
++static int dest_tail(
++	BYTE *dest_at,
++	BYTE *const dest_end,
++	const BYTE *const dest,
++	const BYTE *const nr0,
++	const BYTE *const source_end,
++	const U32 nr_log2,
++	const U32 off_log2)
++{
++	const U32 nr_mask = mask(nr_log2);
++	const U32 r_log2 = TOKEN_BITS_MAX - (off_log2 + nr_log2);
++	const U32 nr_bytes_literal = (U32)(source_end - nr0);
++	/* check if there is enough space for uncompressed data */
++	if (compressd_bytes_min(nr_log2, nr_bytes_literal) > (U32)(dest_end - dest_at))
++		return -1;
++	if (nr_bytes_literal < nr_mask) {
++		/* caller guarantees at least one nr-byte */
++		U32 token = (nr_bytes_literal << (off_log2 + r_log2));
++		LZ4_memcpy(dest_at, &token, TOKEN_BYTES_MAX);
++		dest_at += TOKEN_BYTES_MAX;
++	} else { /* nr_bytes_literal>=nr_mask */
++		U32 bytes_left = nr_bytes_literal - nr_mask;
++		U32 token = (nr_mask << (off_log2 + r_log2));
++		dest_at = dest_token_then_bytes_left(dest_at, token, bytes_left);
++	} /* if (nr_bytes_literal<nr_mask) */
++	LZ4_memcpy(dest_at, nr0, nr_bytes_literal);
++	return (int)(dest_at + nr_bytes_literal - dest);
++}
++
++inline static int dest_tail2(
++	BYTE *dest_at,
++	BYTE *const dest_end,
++	const BYTE *const dest,
++	const BYTE *const r,
++	const BYTE *const source_end,
++	const U32 nr_log2,
++	const U32 off_log2)
++{
++	return r == source_end ? (int)(dest_at - dest) :
++		dest_tail(dest_at, dest_end, dest, r, source_end,
++			 nr_log2, off_log2);
++}
++
++
++static BYTE *dest_non_repeat(
++	BYTE *dest_at,
++	BYTE *const dest_end,
++	U32 token,
++	const BYTE *const nr0,
++	const BYTE *const r,
++	const U32 nr_log2,
++	const U32 off_log2)
++{
++	const U32 lit_length = (U32)(r - nr0);
++	const U32 nr_mask = mask(nr_log2),
++		r_log2 = TOKEN_BITS_MAX - (off_log2 + nr_log2);
++	if (likely(lit_length < nr_mask)) {
++		token |= (lit_length << (off_log2 + r_log2));
++		LZ4_memcpy(dest_at, &token, TOKEN_BYTES_MAX);
++		dest_at += TOKEN_BYTES_MAX;
++	} else { /* lit_length >= nr_mask */
++		U32 bytes_left = lit_length - nr_mask;
++		token |= (nr_mask << (off_log2 + r_log2));
++		dest_at = dest_token_then_bytes_left(dest_at, token, bytes_left);
++	} /* if (lit_length<nr_mask) */
++	copy_x_while_total(dest_at, nr0, lit_length, NR_COPY_MIN);
++	dest_at += lit_length;
++	return dest_at;
++}
++
++inline static BYTE *dest_r_bytes_left(
++	BYTE *dest_at,
++	U32 match_length,
++	const U32 nr_log2,
++	const U32 off_log2)
++{
++	const U32 r_mask = mask(TOKEN_BITS_MAX - (off_log2 + nr_log2));
++	return likely(match_length - REPEAT_MIN < r_mask) ?
++		dest_at : dest_size_bytes(dest_at, match_length - REPEAT_MIN - r_mask);
++}
++
++static BYTE *dest_repeat(
++	BYTE *dest_at,
++	U32 token,
++	U32 match_length,
++	const U32 nr_log2,
++	const U32 off_log2)
++{
++	const U32 r_mask = mask(TOKEN_BITS_MAX - (off_log2 + nr_log2));
++	if (likely(match_length - REPEAT_MIN < r_mask)) {
++		token |= ((match_length - REPEAT_MIN) << off_log2);
++		LZ4_memcpy(dest_at, &token, TOKEN_BYTES_MAX);
++		dest_at += TOKEN_BYTES_MAX;
++	} else {
++		U32 bytes_left = match_length - REPEAT_MIN - r_mask;
++		token |= (r_mask << off_log2);
++		dest_at = dest_token_then_bytes_left(dest_at, token, bytes_left);
++	}
++	return dest_at;
++}
++
++inline static BYTE *dest_tuple(
++	BYTE *dest_at,
++	BYTE *const dest_end,
++	U32 token,
++	const BYTE *const nr0,
++	const BYTE *const r,
++	U32 match_length,
++	const U32 nr_log2,
++	const U32 off_log2)
++{
++	update_token(match_length, &token, nr_log2, off_log2);
++	dest_at = dest_non_repeat(dest_at, dest_end, token, nr0, r, nr_log2, off_log2);
++	return dest_r_bytes_left(dest_at, match_length, nr_log2, off_log2);
++}
++
++static const BYTE *repeat_end(
++	const BYTE *q,
++	const BYTE *r,
++	const BYTE *const source_end_safe,
++	const BYTE *const source_end)
++{
++	q += REPEAT_MIN;
++	r += REPEAT_MIN;
++	/* caller guarantees r+12<=in_end */
++	do {
++		const U64 x = read8_at(q) ^ read8_at(r);
++		if (x) {
++			const U16 ctz = (U16)__builtin_ctzl(x);
++			return r + (ctz >> BYTE_BITS_LOG2);
++		}
++		/* some bytes differ: count of trailing 0-bits/bytes */
++		q += sizeof(U64);
++		r += sizeof(U64);
++	} while (likely(r <= source_end_safe)); /* once, at input block end */
++	while (r < source_end) {
++		if (*q != *r) return r;
++		++q;
++		++r;
++	}
++	return r;
++}
++
++inline static U32 hash(const BYTE *r)
++{
++	return hash64_5b(r, HT_LOG2);
++}
++
++static int compress_64k(
++	U16 *const dict,
++	const BYTE *const base,
++	const BYTE *const source_end,
++	BYTE *const dest,
++	BYTE *const dest_end)
++{
++	enum {
++		NR_LOG2 = NR_4KB_LOG2,
++		OFF_LOG2 = BLOCK_4KB_LOG2
++	};
++	const BYTE *const source_end_safe = source_end - NR_COPY_MIN;
++	const BYTE *r = base;
++	const BYTE *nr0 = r++;
++	BYTE *dest_at = dest;
++	for (; ; nr0 = r) {
++		const BYTE *q = 0;
++		U32 step = 1 << STEP_LOG2;
++		U32 token = 0;
++		const BYTE *r_end = 0;
++		U32 match_length = 0;
++		while (true) {
++			if (equal4(q = hashed(base, dict, hash(r), r), r))
++				break;
++			++r;
++			if (equal4(q = hashed(base, dict, hash(r), r), r))
++				break;
++			if (unlikely((r += (++step >> STEP_LOG2)) > source_end_safe))
++				return dest_tail(dest_at, dest_end, dest, nr0, source_end,
++						NR_LOG2, OFF_LOG2);
++		}
++		/* first store the offset */
++		token = (U32)(r - q);
++		r_end = repeat_end(q, r, source_end_safe, source_end);
++		match_length = (U32)(r_end - r);
++		if (unlikely(nr0 == r))
++			dest_at = dest_repeat(dest_at, token, match_length,
++					    NR_LOG2, OFF_LOG2);
++		else
++			dest_at = dest_tuple(dest_at, dest_end, token, nr0, r, match_length,
++					    NR_LOG2, OFF_LOG2);
++		if (unlikely((r += match_length) > source_end_safe))
++			return dest_tail2(dest_at, dest_end, dest, r, source_end,
++					 NR_LOG2, OFF_LOG2);
++		/* update r-1 every iters, no need to worry about overflows since r >= 1 */
++		dict[hash(r - 1)] = (U16)(r - 1 - base);
++	}
++}
++
++int lz4k_compress(
++	void *const state,
++	const void *const source,
++	void *dest,
++	unsigned source_max,
++	unsigned dest_max)
++{
++	m_set(state, 0, 1U << (HT_LOG2+1));
++	*((BYTE*)dest) = 0;
++	return compress_64k((U16*)state, (const BYTE*)source,
++			(const BYTE*)source + source_max, (BYTE*)dest, (BYTE*)dest + dest_max);
++}
++EXPORT_SYMBOL(lz4k_compress);
++
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_DESCRIPTION("LZ4K compressr");
+diff -Nur ./repo-base/lib/lz4k/lz4k_decompress.c repo-target/lib/lz4k/lz4k_decompress.c
+--- ./repo-base/lib/lz4k/lz4k_decompress.c	1970-01-01 08:00:00.000000000 +0800
++++ repo-target/lib/lz4k/lz4k_decompress.c	2026-03-30 07:28:02.884283122 +0800
+@@ -0,0 +1,254 @@
++#include "lz4k.h"
++#define MASK_3B 0X00FFFFFF
++
++static const BYTE *get_size(
++	U32 *size,
++	const BYTE *source_at,
++	const BYTE *const source_end)
++{
++	U32 u;
++	do {
++		if (unlikely(source_at >= source_end))
++			return NULL;
++		*size += (u = *(const BYTE*)source_at);
++		++source_at;
++	} while (BYTE_MAX == u);
++	return source_at;
++}
++
++inline static void while_lt_copy_x(
++	BYTE *dst,
++	const BYTE *src,
++	const BYTE *dst_end,
++	const size_t copy_min)
++{
++	for (; dst < dst_end; dst += copy_min, src += copy_min)
++		LZ4_memcpy(dst, src, copy_min);
++}
++
++inline static void copy_x_while_lt(
++	BYTE *dst,
++	const BYTE *src,
++	const BYTE *dst_end,
++	const size_t copy_min)
++{
++	while (dst + copy_min < dst_end){
++		LZ4_memcpy(dst += copy_min, src += copy_min, copy_min);
++	}
++}
++
++inline static void copy_2x(
++	BYTE *dst,
++	const BYTE *src,
++	const size_t copy_min)
++{
++	LZ4_memcpy(dst, src, copy_min);
++	LZ4_memcpy(dst + copy_min, src + copy_min, copy_min);
++}
++
++inline static void copy_2x_as_x2_while_lt(
++	BYTE *dst,
++	const BYTE *src,
++	const BYTE *dst_end,
++	const size_t copy_min)
++{
++	copy_2x(dst, src, copy_min);
++	while (dst + (copy_min << 1) < dst_end)
++		copy_2x(dst += (copy_min << 1), src += (copy_min << 1), copy_min);
++}
++
++inline static void while_lt_copy_2x_as_x2(
++	BYTE *dst,
++	const BYTE *src,
++	const BYTE *dst_end,
++	const size_t copy_min)
++{
++	for (; dst < dst_end; dst += (copy_min << 1), src += (copy_min << 1))
++		copy_2x(dst, src, copy_min);
++}
++
++static int end_of_block(
++	const U32 lit_length,
++	const U32 match_length,
++	const BYTE *const source_at,
++	const BYTE *const source_end,
++	const BYTE *const dest,
++	const BYTE *const dest_at)
++{
++	/* check if this is the last block */
++	if (unlikely((!lit_length) || (source_at != source_end)
++		|| (match_length != REPEAT_MIN)))
++			return -1;
++	return (int)(dest_at - dest);
++}
++
++enum {
++	NR_COPY_MIN = 32,
++	R_COPY_MIN = 16,
++	R_COPY_SAFE = R_COPY_MIN - 1,
++	R_COPY_SAFE_2X = (R_COPY_MIN << 1) - 1
++};
++
++static bool literal_decompress(
++	const BYTE **source_at,
++	BYTE **dest_at,
++	U32 lit_length,
++	const BYTE *const source_end,
++	const BYTE *const dest_end)
++{
++	const BYTE *const source_copy_end = *source_at + lit_length;
++	BYTE *const dest_copy_end = *dest_at + lit_length;
++	/* literals to be copied are small */
++	if (likely(lit_length <= NR_COPY_MIN)) {
++		if (likely(*source_at <= source_end - NR_COPY_MIN))
++			LZ4_memcpy(*dest_at, *source_at, NR_COPY_MIN);
++		else if (source_copy_end <= source_end)
++			LZ4_memcpy(*dest_at, *source_at, lit_length);
++		else
++			return false;
++
++	} else { /* more literals need to be copied */
++		/* check if there are enough space for copying without out of bounds access */
++		if (likely(source_copy_end <= source_end - NR_COPY_MIN &&
++			   dest_copy_end <= dest_end - NR_COPY_MIN)) {
++			LZ4_memcpy(*dest_at, *source_at, NR_COPY_MIN);
++			copy_x_while_lt(*dest_at,
++					*source_at,
++					dest_copy_end, NR_COPY_MIN);
++			/* if (*dest_at + NR_COPY_MIN < dest_copy_end){
++				LZ4_memcpy(*dest_at += NR_COPY_MIN, *source_at += NR_COPY_MIN, NR_COPY_MIN);
++			} */
++		} else if (source_copy_end <= source_end && dest_copy_end <= dest_end) {
++			LZ4_memcpy(*dest_at, *source_at, lit_length);
++		} else { /* source_copy_end > source_end || dest_copy_end > dest_end */
++			return false;
++		}
++	} /* if (lit_length <= NR_COPY_MIN) */
++	*source_at = source_copy_end;
++	*dest_at = dest_copy_end;
++	return true;
++}
++
++static void dest_repeat_overlap(
++	U32 offset,
++	BYTE *dest_at,
++	const BYTE *dest_from,
++	const BYTE *const dest_copy_end)
++{
++	enum {
++		COPY_MIN = R_COPY_MIN >> 1,
++		OFFSET_LIMIT = COPY_MIN >> 1
++	};
++	LZ4_memcpy(dest_at, dest_from, COPY_MIN);
++/* (1 < offset < R_COPY_MIN/2) && dest_copy_end + R_COPY_SAFE_2X  <= dest_end */
++	dest_at += offset;
++	if (offset <= OFFSET_LIMIT)
++		offset <<= 1;
++	do {
++		LZ4_memcpy(dest_at, dest_from, COPY_MIN);
++		dest_at += offset;
++		if (offset <= OFFSET_LIMIT)
++			offset <<= 1;
++	} while (dest_at - dest_from < R_COPY_MIN);
++	while_lt_copy_2x_as_x2(dest_at, dest_from, dest_copy_end, R_COPY_MIN);
++}
++
++static bool dest_repeat_slow(
++	U32 match_length,
++	U32 offset,
++	BYTE *dest_at,
++	const BYTE *dest_from,
++	const BYTE *const dest_copy_end,
++	const BYTE *const dest_end)
++{
++	if (offset > 1 && dest_copy_end <= dest_end - R_COPY_SAFE_2X) {
++		dest_repeat_overlap(offset, dest_at, dest_from, dest_copy_end);
++	} else {
++		if (unlikely(dest_copy_end > dest_end))
++			return false;
++		if (offset == 1) {
++			m_set(dest_at, *dest_from, match_length);
++		} else {
++			do
++				*dest_at++ = *dest_from++;
++			while (dest_at < dest_copy_end);
++		}
++	}
++	return true;
++}
++
++static int decompress(
++	const BYTE *source_at,
++	BYTE *const dest,
++	const BYTE *const source_end,
++	const BYTE *const dest_end,
++	const U32 lit_log2,
++	const U32 off_log2)
++{
++	const U32 match_log2 = TOKEN_BITS_MAX - (off_log2 + lit_log2);
++	const BYTE *const source_end_minus_x = source_end - TOKEN_BYTES_MAX;
++	BYTE *dest_at = dest;
++	while (likely(source_at <= source_end_minus_x)) {
++		const U32 token = (*(U32 *)(source_at)) & MASK_3B;
++		const U32 offset = token & mask(off_log2);
++		U32 lit_length = token >> (off_log2 + match_log2),
++			      match_length = ((token >> off_log2) & mask(match_log2)) +
++					    REPEAT_MIN;
++		const BYTE *dest_from = 0;
++		BYTE *dest_copy_end = 0;
++		const BYTE *dest_safe_end = 0;
++		source_at += TOKEN_BYTES_MAX;
++		/* get literal length and decompress */
++		if (unlikely(lit_length == mask(lit_log2))) {
++			source_at = get_size(&lit_length, source_at, source_end);
++		}
++		if (!literal_decompress(&source_at, &dest_at, lit_length, source_end, dest_end))
++			return -1;
++		/* get match length and decompress */
++		if (unlikely(match_length == mask(match_log2) + REPEAT_MIN)) {
++			source_at = get_size(&match_length, source_at, source_end);
++		}
++		dest_from = dest_at - offset;
++		if (unlikely(dest_from < dest))
++			return -1;
++		dest_copy_end = dest_at + match_length;
++		dest_safe_end = dest_end - R_COPY_SAFE_2X;
++		/* need offset >= R_COPY_MIN, since every time copy R_COPY_MIN Bytes */
++		if (likely(offset >= R_COPY_MIN && dest_copy_end <= dest_safe_end)) {
++			copy_2x_as_x2_while_lt(dest_at, dest_from, dest_copy_end,
++					       R_COPY_MIN);
++		} else if (likely(offset >= (R_COPY_MIN >> 1) &&
++				  dest_copy_end <= dest_safe_end)) {
++			LZ4_memcpy(dest_at, dest_from, R_COPY_MIN);
++			dest_at += offset;
++			while_lt_copy_x(dest_at, dest_from, dest_copy_end, R_COPY_MIN);
++		} else if (likely(offset > 0)) {
++			if (!dest_repeat_slow(match_length, offset, dest_at, dest_from,
++			     dest_copy_end, dest_end))
++				return -1;
++		} else { /* offset == 0: EOB, last literal */
++			return end_of_block(lit_length, match_length, source_at,
++					    source_end, dest, dest_at);
++		}
++		dest_at = dest_copy_end;
++	}
++	return source_at == source_end ? (int)(dest_at - dest) : -1;
++}
++
++int lz4k_decompress(
++	const void *source,
++	void *const dest,
++	unsigned source_max,
++	unsigned dest_max)
++{
++	/* preventing compiler optimizations */
++	const BYTE *volatile source_end = (const BYTE*)source + source_max;
++	const BYTE *volatile dest_end = (BYTE*)dest + dest_max;
++
++	return decompress((const BYTE*)source, (BYTE*)dest, source_end, dest_end,
++			NR_4KB_LOG2, BLOCK_4KB_LOG2);
++}
++EXPORT_SYMBOL(lz4k_decompress);
++
++MODULE_LICENSE("Dual BSD/GPL");
++MODULE_DESCRIPTION("LZ4K decompressr");
