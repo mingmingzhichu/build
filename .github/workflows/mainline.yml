@@ -26,7 +26,8 @@ jobs:
           # 克隆内核源码和 Clang 工具链
           sudo dpkg --add-architecture arm64
           sudo bash -c '
-            
+            # 清空旧源
+            echo "" > /etc/apt/sources.list
             # 追加 arm64 源
             echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse" >> /etc/apt/sources.list
             echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list
@@ -53,7 +54,7 @@ jobs:
           echo "CONFIG_EFI_STUB=y" >> ~/kernel/arch/arm64/configs/defconfig
           make ARCH=arm64 defconfig sm8150.config 
           # 使用 Clang 编译内核
-          make -j$(nproc --all) ARCH=arm64 CC=clang CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 deb-pkg
+          make -j$(nproc --all) ARCH=arm64 CC=clang CC=clang LD=ld.lld AR=llvm-ar NM=llvm-nm OBJCOPY=llvm-objcopy OBJDUMP=llvm-objdump STRIP=llvm-strip CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnueabi- LLVM=1 LLVM_IAS=1 deb-pkg DEB_FLAG_ARGS="-d"
            strings -n 10 ./arch/arm64/arm64/Image | grep -E '\.(bin|mbn|fw|img)$' | sort -u
            cp ../linux-*.deb ~/kernel/arch/arm64/boot/
            cp .config ~/kernel/arch/arm64/boot/
