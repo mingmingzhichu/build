@@ -26,8 +26,7 @@ jobs:
           # 克隆内核源码和 Clang 工具链
           sudo dpkg --add-architecture arm64
           sudo bash -c '
-            # 清空旧源
-            echo "" > /etc/apt/sources.list
+            
             # 追加 arm64 源
             echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse" >> /etc/apt/sources.list
             echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list
