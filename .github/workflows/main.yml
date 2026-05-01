@@ -50,6 +50,9 @@ jobs:
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_USER_NS=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_SQUASHFS=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "CONFIG_MODULES=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "CONFIG_MODULE_UNLOAD=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
+          echo "CONFIG_MODULE_FORCE_UNLOAD=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU_MANUAL_HOOK_AUTO_INPUT_HOOK=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/1.patch
           patch -p1 < 1.patch
