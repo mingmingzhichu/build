@@ -9,10 +9,10 @@ Signed-off-by: ravindu644 <droidcasts@protonmail.com>
  kernel/cgroup/cgroup.c | 5 +++++
  1 file changed, 5 insertions(+)
 
-diff --git a/kernel/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
+diff --git a/cgroup/cgroup.c b/kernel/cgroup/cgroup.c
 index 694b1cc8d..d0d04bff1 100755
---- a/kernel/cgroup/cgroup.c
-+++ b/kernel/cgroup/cgroup.c
+--- a/cgroup/cgroup.c
++++ b/cgroup/cgroup.c
 @@ -3496,6 +3496,11 @@ static int cgroup_add_file(struct cgroup_subsys_state *css, struct cgroup *cgrp,
  		spin_unlock_irq(&cgroup_file_kn_lock);
  	}
