@@ -62,7 +62,7 @@ jobs:
           sed -i 's/LZ4_armv8_decompress_safe/LZ4_arm64_decompress_safe/g' lib/lz4/lz4_decompress.c
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/space.config cat space.config >> .config
           axel https://raw.githubusercontent.com/ravindu644/Droidspaces-OSS/refs/heads/main/Documentation/resources/kernel-patches/non-GKI/01.fix_kernel_panic_in_xt_qtaguid.patch
-          patch -p1 < 01.fix_kernel_panic_in_xt_qtaguid.patch
+          #patch -p1 < 01.fix_kernel_panic_in_xt_qtaguid.patch
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/02.patch
           patch -p1 < 02.patch
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
