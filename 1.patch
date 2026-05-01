@@ -1261,3 +1261,17 @@ diff -Nur ./repo-base/lib/lz4k/lz4k_decompress.c repo-target/lib/lz4k/lz4k_decom
 +
 +MODULE_LICENSE("Dual BSD/GPL");
 +MODULE_DESCRIPTION("LZ4K decompressr");
+
+diff --git a/lib/lz4/lz4_decompress.c b/lib/lz4/lz4_decompress.c
+index ... ... 100644
+--- a/lib/lz4/lz4_decompress.c
++++ b/lib/lz4/lz4_decompress.c
+@@ -1120,8 +1120,8 @@ ssize_t LZ4_arm64_decompress_safe_partial(const void *source,
+ 
+ #if IS_ENABLED(CONFIG_ARM64)
+ /* Export arm64 optimized functions for modules */
+-EXPORT_SYMBOL(LZ4_armv8_decompress_safe);
+-EXPORT_SYMBOL(LZ4_armv8_decompress_safe_partial);
++EXPORT_SYMBOL(LZ4_arm64_decompress_safe);
++EXPORT_SYMBOL(LZ4_arm64_decompress_safe_partial);
+ #endif
