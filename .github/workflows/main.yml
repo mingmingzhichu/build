@@ -55,8 +55,9 @@ jobs:
           echo "CONFIG_MODULE_FORCE_UNLOAD=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU_MANUAL_HOOK_AUTO_INPUT_HOOK=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/1.patch
-          sed -i 's/LZ4_armv8_decompress_safe/LZ4_arm64_decompress_safe/g' lib/lz4/lz4_decompress.c
+          
           patch -p1 < 1.patch
+          sed -i 's/LZ4_armv8_decompress_safe/LZ4_arm64_decompress_safe/g' lib/lz4/lz4_decompress.c
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
           make O=../out ARCH=arm64 gulch_defconfig
           # 使用 Clang 编译内核
