@@ -76,7 +76,7 @@ jobs:
 
           cd ~
           unzip ~/AnyKernel3-master.zip -d ~/AnyKernel3-master
-          cp ./out/config ~/AnyKernel3-master/
+          cp ./out/.config ~/AnyKernel3-master/config
           cp ~/out/arch/arm64/boot/Image.gz-dtb ~/AnyKernel3-master/
       - name: Upload
         uses: actions/upload-artifact@v6
