@@ -51,7 +51,7 @@ jobs:
           echo "CONFIG_KALLSYMS_ALL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           patch -p1 < 1.patch
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s dev
-          make mrproper
+          
           make O=../out ARCH=arm64 gulch_defconfig
           # 使用 Clang 编译内核
           make -j$(nproc --all) O=../out ARCH=arm64 \
