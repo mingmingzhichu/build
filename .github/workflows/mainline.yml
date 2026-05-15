@@ -28,22 +28,54 @@ jobs:
           git clone https://gitlab.com/alphadroid-project/prebuilts_clang_host_linux-x86_clang-r547379.git \
             ~/clang --depth=1
 
-      - name: Create Clang cross-wrapper (points to prebuilt Clang)
+      - name: Prepare Clang toolchain (create missing symlinks)
         run: |
-          # 包装器用于欺骗 dpkg 架构检测
-          sudo tee /usr/local/bin/aarch64-linux-gnu-clang << 'EOF'
+          # 为 dpkg 识别架构创建包装器（注意 $HOME 展开）
+          sudo tee /usr/local/bin/aarch64-linux-gnu-clang > /dev/null <<EOF
           #!/bin/sh
-          exec $HOME/clang/bin/clang --target=aarch64-linux-gnu "$@"
+          exec ${HOME}/clang/bin/clang --target=aarch64-linux-gnu "\$@"
           EOF
 
-          sudo tee /usr/local/bin/aarch64-linux-gnu-clang++ << 'EOF'
+          sudo tee /usr/local/bin/aarch64-linux-gnu-clang++ > /dev/null <<EOF
           #!/bin/sh
-          exec $HOME/clang/bin/clang++ --target=aarch64-linux-gnu "$@"
+          exec ${HOME}/clang/bin/clang++ --target=aarch64-linux-gnu "\$@"
           EOF
 
           sudo chmod +x /usr/local/bin/aarch64-linux-gnu-clang /usr/local/bin/aarch64-linux-gnu-clang++
-          # 确保预编译 Clang 可执行
-          chmod +x $HOME/clang/bin/clang $HOME/clang/bin/clang++ $HOME/clang/bin/ld.lld $HOME/clang/bin/llvm-ar
+
+          # 确保 clang 等可执行
+          chmod +x ${HOME}/clang/bin/clang ${HOME}/clang/bin/clang++ 2>/dev/null || true
+
+          # 检查并修复 ld.lld 缺失问题
+          cd ${HOME}/clang/bin
+          # 列出可用 lld 相关文件
+          ls -la | grep -i lld
+          # 如果没有 ld.lld，则尝试创建链接
+          if [ ! -f ld.lld ]; then
+            # 优先使用不带版本号的 lld
+            if [ -f lld ]; then
+              ln -s lld ld.lld
+            elif [ -f ld.lld-* ]; then
+              # 若有带版本号的文件，创建无版本链接
+              LLDS=$(ls ld.lld-* 2>/dev/null | head -1)
+              if [ -n "$LLDS" ]; then
+                ln -s "$LLDS" ld.lld
+              fi
+            fi
+          fi
+
+          # 类似处理 llvm-ar、llvm-nm 等可能缺链接的情况
+          for tool in llvm-ar llvm-nm llvm-objcopy llvm-objdump llvm-strip; do
+            if [ ! -f $tool ]; then
+              # 尝试找带版本号的文件（如 llvm-ar-18）
+              FOUND=$(ls ${tool}-* 2>/dev/null | head -1)
+              if [ -n "$FOUND" ]; then
+                ln -s "$FOUND" "$tool"
+              fi
+            fi
+          done
+          # 回到原始目录
+          cd -
 
       - name: Build kernel
         run: |
@@ -51,15 +83,15 @@ jobs:
           export KBUILD_BUILD_HOST=localhost
           export ARCH=arm64
 
-          # 指向包装器（路径优先）
+          # 使用包装器作为交叉编译器
           export CC=aarch64-linux-gnu-clang
           export CXX=aarch64-linux-gnu-clang++
-          export LD=$HOME/clang/bin/ld.lld
-          export AR=$HOME/clang/bin/llvm-ar
-          export NM=$HOME/clang/bin/llvm-nm
-          export OBJCOPY=$HOME/clang/bin/llvm-objcopy
-          export OBJDUMP=$HOME/clang/bin/llvm-objdump
-          export STRIP=$HOME/clang/bin/llvm-strip
+          export LD=${HOME}/clang/bin/ld.lld
+          export AR=${HOME}/clang/bin/llvm-ar
+          export NM=${HOME}/clang/bin/llvm-nm
+          export OBJCOPY=${HOME}/clang/bin/llvm-objcopy
+          export OBJDUMP=${HOME}/clang/bin/llvm-objdump
+          export STRIP=${HOME}/clang/bin/llvm-strip
           export LLVM=1
           export LLVM_IAS=1
 
