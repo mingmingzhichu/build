@@ -1,4 +1,4 @@
-name: Build main kernel with Clang
+name: Build main kernel with Clang (prebuilt)
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ jobs:
         with:
           swap-size-gb: 10
 
-      - name: Install build dependencies
+      - name: Install system build dependencies
         run: |
           sudo apt update
           sudo apt install -y \
@@ -21,24 +21,29 @@ jobs:
             fakeroot dpkg-dev debhelper \
             git curl axel rsync python3 file \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            gcc-arm-linux-gnueabi g++-arm-linux-gnueabi \
-            clang lld llvm
+            gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
 
-      - name: Setup Clang cross-wrapper
+      - name: Clone prebuilt Clang toolchain
         run: |
-          # 创建 aarch64-linux-gnu-clang 包装器
+          git clone https://gitlab.com/alphadroid-project/prebuilts_clang_host_linux-x86_clang-r547379.git \
+            ~/clang --depth=1
+
+      - name: Create Clang cross-wrapper (points to prebuilt Clang)
+        run: |
+          # 包装器用于欺骗 dpkg 架构检测
           sudo tee /usr/local/bin/aarch64-linux-gnu-clang << 'EOF'
           #!/bin/sh
-          exec /usr/bin/clang --target=aarch64-linux-gnu "$@"
+          exec $HOME/clang/bin/clang --target=aarch64-linux-gnu "$@"
           EOF
 
-          # 创建 aarch64-linux-gnu-clang++ 包装器
           sudo tee /usr/local/bin/aarch64-linux-gnu-clang++ << 'EOF'
           #!/bin/sh
-          exec /usr/bin/clang++ --target=aarch64-linux-gnu "$@"
+          exec $HOME/clang/bin/clang++ --target=aarch64-linux-gnu "$@"
           EOF
 
           sudo chmod +x /usr/local/bin/aarch64-linux-gnu-clang /usr/local/bin/aarch64-linux-gnu-clang++
+          # 确保预编译 Clang 可执行
+          chmod +x $HOME/clang/bin/clang $HOME/clang/bin/clang++ $HOME/clang/bin/ld.lld $HOME/clang/bin/llvm-ar
 
       - name: Build kernel
         run: |
@@ -46,30 +51,24 @@ jobs:
           export KBUILD_BUILD_HOST=localhost
           export ARCH=arm64
 
-          # 使用包装器作为交叉编译器
+          # 指向包装器（路径优先）
           export CC=aarch64-linux-gnu-clang
           export CXX=aarch64-linux-gnu-clang++
-          export LD=ld.lld
-          export AR=llvm-ar
-          export NM=llvm-nm
-          export OBJCOPY=llvm-objcopy
-          export OBJDUMP=llvm-objdump
-          export STRIP=llvm-strip
+          export LD=$HOME/clang/bin/ld.lld
+          export AR=$HOME/clang/bin/llvm-ar
+          export NM=$HOME/clang/bin/llvm-nm
+          export OBJCOPY=$HOME/clang/bin/llvm-objcopy
+          export OBJDUMP=$HOME/clang/bin/llvm-objdump
+          export STRIP=$HOME/clang/bin/llvm-strip
           export LLVM=1
           export LLVM_IAS=1
 
-          # 克隆源码
           git clone https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git -b sm8150/7.0-wip kernel --depth=1
           cd kernel
-
-          # 追加配置
           echo "CONFIG_EFI_STUB=y" >> arch/arm64/configs/defconfig
           make ARCH=arm64 defconfig sm8150.config
-
-          # 构建 deb 包（并行数可调节，-j$(nproc) 即可）
           make -j$(nproc) deb-pkg
 
-          # 整理输出
           mkdir -p ~/output
           cp arch/arm64/boot/Image.gz ~/output/ || true
           cp arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb ~/output/ || true
@@ -79,5 +78,5 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: kernel-arm64-clang
+          name: kernel-arm64-clang-prebuilt
           path: ~/output/
