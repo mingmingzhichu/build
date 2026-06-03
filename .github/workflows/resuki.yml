@@ -53,7 +53,7 @@ jobs:
           patch -p1 < 1.patch
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s builtin
           make O=../out ARCH=arm64 gulch_defconfig
-          grep CONFIG_KALLSYMS_ALL .config
+          grep CONFIG_KALLSYMS_ALL ../out/.config
           # 使用 Clang 编译内核
           make -j$(nproc --all) O=../out ARCH=arm64 \
               CC=clang \
