@@ -50,7 +50,8 @@ jobs:
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/1.patch
           
           ./scripts/config --enable KALLSYMS_ALL
-          make olddefconfig   # 解决依赖，自动设置相关选项
+          make olddefconfig o=..out  # 解决依赖，自动设置相关选项
+          make mrproper
           patch -p1 < 1.patch
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash 
           make O=../out ARCH=arm64 gulch_defconfig
