@@ -48,8 +48,9 @@ jobs:
           echo "CONFIG_KSU=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           echo "CONFIG_KSU_MANUAL_HOOK_AUTO_INPUT_HOOK=n" >> ~/kernel/arch/arm64/configs/gulch_defconfig
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/1.patch
-          echo "CONFIG_KALLSYMS_ALL=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          echo "EXPORT_SYMBOL(write_op);" >> security/selinux/selinuxfs.c
+          
+          ./scripts/config --enable KALLSYMS_ALL
+          make olddefconfig   # 解决依赖，自动设置相关选项
           patch -p1 < 1.patch
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash 
           make O=../out ARCH=arm64 gulch_defconfig
