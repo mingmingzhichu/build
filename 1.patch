@@ -1308,10 +1308,6 @@ index 9a2d1a9edb9d..79e837bcb095 100644
  				    struct context *scontext,
  				    struct context *tcontext,
  				    u16 tclass,
-diff --git a/security/selinux/ss/services.c b/security/selinux/ss/services.c
-index xxxxxxx..yyyyyyy 100644
---- a/security/selinux/ss/services.c
-+++ b/security/selinux/ss/services.c
 @@ -616,7 +616,7 @@ static void avd_init(struct av_decision *avd)
  	avd->flags = 0;
  }
