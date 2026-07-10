@@ -29,19 +29,22 @@ jobs:
       run: |
         # 获取可用核心数加速编译
         cd linux
+        sed -i 's/dr_mode\s*=\s*"peripheral"/dr_mode = "host"/g' arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dts
         JOBS=$(nproc --all)
         make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
           -j$JOBS Image.gz dtbs modules
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- bindeb-pkg -j$(nproc)
 
     - name: Package artifacts
       run: |
         cd linux
         mkdir -p kernel_artifacts
         # 复制内核镜像
+        cp ../*.deb kernel_artifacts/ 
         cp arch/arm64/boot/Image.gz kernel_artifacts/
         cp arch/arm64/boot/Image kernel_artifacts/  # 未压缩版本
         # 复制设备树
-        cp arch/arm64/boot/dts/qcom/*.dtb kernel_artifacts/ 2>/dev/null || true
+        cp arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb kernel_artifacts/ 2>/dev/null || true
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
