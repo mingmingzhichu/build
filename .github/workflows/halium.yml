@@ -19,6 +19,7 @@ jobs:
     - name: Configure kernel
       run: |
         git clone https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git --depth 1
+        cd linux
         # 使用 postmarketOS 的配置文件
         # 如果官方 defconfig 可用，可替换为：make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
         make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
