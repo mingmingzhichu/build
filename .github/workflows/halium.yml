@@ -28,12 +28,14 @@ jobs:
     - name: Build kernel and dtbs
       run: |
         # 获取可用核心数加速编译
+        cd linux
         JOBS=$(nproc --all)
         make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
           -j$JOBS Image.gz dtbs modules
 
     - name: Package artifacts
       run: |
+        cd linux
         mkdir -p kernel_artifacts
         # 复制内核镜像
         cp arch/arm64/boot/Image.gz kernel_artifacts/
@@ -45,4 +47,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: sm8150-kernel
-        path: kernel_artifacts/
+        path: linux/kernel_artifacts/
