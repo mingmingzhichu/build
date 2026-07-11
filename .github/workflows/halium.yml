@@ -36,7 +36,7 @@ jobs:
           -j$JOBS Image.gz dtbs modules
         export DEB_HOST_ARCH=arm64
         export DEB_BUILD_ARCH=amd64  
-        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- bindeb-pkg -j$(nproc)
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- bindeb-pkg -j$(nproc) DPKG_FLAGS="-d"
 
     - name: Package artifacts
       run: |
