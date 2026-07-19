@@ -1,0 +1,27 @@
+--- sm8150-oneplus-hotdogb.dts.bak	2026-07-19 12:53:51.466292500 +0800
++++ sm8150-oneplus-hotdogb.dts	2026-07-19 12:54:51.509631815 +0800
+@@ -62,4 +62,23 @@
+ 			ecc-size = <0x0>;
+ 		};
+ 	};
++};
++&i2c5 {
++    status = "okay";
++
++    touchscreen@20 {
++        compatible = "syna,rmi4-s3706b-i2c", "synaptics-s3706";
++        reg = <0x20>;
++
++        interrupt-parent = <&tlmm>;
++        interrupts = <122 IRQ_TYPE_LEVEL_LOW>;
++
++        reset-gpios = <&tlmm 80 GPIO_ACTIVE_LOW>;
++
++        vcc_1v8-supply = <&pm8150_l6>;
++
++        touchscreen-size-x = <1080>;
++        touchscreen-size-y = <2400>;
++        touchscreen-max-pressure = <255>;
++    };
+ };
+\ No newline at end of file
