@@ -1,4 +1,4 @@
-cd linux
+
 sed -i '$a\
 &i2c5 {\
     status = "okay";\
