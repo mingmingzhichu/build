@@ -8,8 +8,8 @@ cat >> arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dts << 'EOF'
         reg = <0x20>;
         interrupt-parent = <&tlmm>;
         interrupts = <122 IRQ_TYPE_LEVEL_LOW>;
-        reset-gpios = <&tlmm 80 GPIO_ACTIVE_LOW>;
-        vcc_1v8-supply = <&pm8150_l6>;
+        reset-gpios = <&tlmm 54 GPIO_ACTIVE_LOW>;   /* 改为 54 */
+        vcc_1v8-supply = <&vreg_l7a_1p8>;           /* 改为实际存在的标签 */
         touchscreen-size-x = <1080>;
         touchscreen-size-y = <2400>;
         touchscreen-max-pressure = <255>;
