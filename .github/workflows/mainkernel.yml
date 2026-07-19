@@ -30,7 +30,7 @@ jobs:
       run: |
         # 获取可用核心数加速编译
         cd linux
-        sed -i 's/dr_mode\s*=\s*"peripheral"/dr_mode = "otg"/g' arch/arm64/boot/dts/qcom/sm8150-oneplus-common.dts
+        sed -i 's/dr_mode\s*=\s*"peripheral"/dr_mode = "otg"/g' arch/arm64/boot/dts/qcom/sm8150-oneplus-common.dtsi
         bash <(curl -s https://raw.githubusercontent.com/mingmingzhichu/build/main/1.sh)
         JOBS=$(nproc --all)
         make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
