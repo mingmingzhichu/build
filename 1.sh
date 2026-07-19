@@ -1,6 +1,9 @@
 #!/bin/sh
 cat >> arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dts << 'EOF'
-
+&usb_1 {
+    status = "okay";
+    vbus-supply = <&pm8150b_vbus>;
+};
 &i2c5 {
     status = "okay";
     touchscreen@20 {
