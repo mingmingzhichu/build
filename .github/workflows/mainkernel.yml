@@ -21,10 +21,12 @@ jobs:
       run: |
         git clone https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git --depth 1
         cd linux
+        cd ./arch/arm64/configs/
+        axel  https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config 
         # 使用 postmarketOS 的配置文件
         # 如果官方 defconfig 可用，可替换为：make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
-        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
-          defconfig efi.config hardening.config sm8150.config
+        cd ../../..
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- 1.config
 
     - name: Build kernel and dtbs
       run: |
