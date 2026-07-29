@@ -21,7 +21,6 @@ jobs:
       run: |
         git clone https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git --depth 1
         cd linux
-        cd ./arch/arm64/configs/
         wget -O .config https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config 
 
     - name: Build kernel and dtbs
