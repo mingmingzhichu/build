@@ -1,0 +1,61 @@
+name: Build SM8150 Mainline Kernel with img
+
+on:
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+
+    - name: Install toolchain
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          gcc-aarch64-linux-gnu \
+          flex bison libssl-dev \
+          device-tree-compiler libelf-dev \
+          bc cpio rsync debhelper axel\
+
+    - name: Configure kernel
+      run: |
+        git clone https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git --depth 1
+        cd linux
+        cd ./arch/arm64/configs/
+        axel  https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config 
+        # 使用 postmarketOS 的配置文件
+        # 如果官方 defconfig 可用，可替换为：make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig
+        cd ../../..
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- 1.config
+
+    - name: Build kernel and dtbs
+      run: |
+        # 获取可用核心数加速编译
+        cd linux
+        sed -i 's/dr_mode\s*=\s*"peripheral"/dr_mode = "otg"/g' arch/arm64/boot/dts/qcom/sm8150-oneplus-common.dtsi
+        bash <(curl -s https://raw.githubusercontent.com/mingmingzhichu/build/main/1.sh)
+        JOBS=$(nproc --all)
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- \
+          -j$JOBS Image.gz dtbs modules
+        export DEB_HOST_ARCH=arm64
+        export DEB_BUILD_ARCH=amd64  
+        make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- deb-pkg -j$(nproc) DPKG_FLAGS="-d"
+        cd ..
+        bash <(curl -s https://raw.githubusercontent.com/mingmingzhichu/build/main/2.sh)
+    - name: Package artifacts
+      run: |
+        cd linux
+        mkdir -p kernel_artifacts
+        # 复制内核镜像
+        cp ./.config kernel_artifacts/
+        cp ../*.deb kernel_artifacts/ 
+        cp arch/arm64/boot/Image.gz kernel_artifacts/
+        cp arch/arm64/boot/Image kernel_artifacts/  # 未压缩版本
+        # 复制设备树
+        cp arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb kernel_artifacts/ 2>/dev/null || true
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: sm8150-kernel
+        path: linux/kernel_artifacts/
