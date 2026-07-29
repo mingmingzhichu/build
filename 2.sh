@@ -31,7 +31,7 @@ sudo mkdir -p "$CHROOT_DIR"
 sudo mount "$ROOTFS_IMG" "$CHROOT_DIR"
 
 echo "==> 执行 debootstrap（从 Debian 官方源拉取 arm64 架构的 bookworm）..."
-sudo debootstrap --arch arm64 bookworm "$CHROOT_DIR" http://deb.debian.org/debian
+sudo debootstrap --arch arm64 Trixie "$CHROOT_DIR" http://deb.debian.org/debian
 
 # -------------------- 3. 挂载必要的虚拟文件系统 --------------------
 echo "==> 挂载 /proc /dev /sys"
