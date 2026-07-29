@@ -6,7 +6,7 @@
 set -e
 
 # -------------------- 用户配置区域 --------------------
-WORKSPACE=~/workspaces
+export WORKSPACE=$GITHUB_WORKSPACE   # 或 $PWD
 ROOTFS_IMG="$WORKSPACE/rootfs-debian.img"
 ROOTFS_SIZE="2G"                # 镜像大小
 CHROOT_DIR="$WORKSPACE/chroot"
