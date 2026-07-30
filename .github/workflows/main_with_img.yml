@@ -22,6 +22,9 @@ jobs:
         git clone https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git --depth 1
         cd linux
         wget -O .config https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config 
+        cd arch/arm64/boot/dts/qcom/
+        rm sm8150-oneplus-common.dtsi
+        axel https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-common.dtsi
 
     - name: Build kernel and dtbs
       run: |
