@@ -30,16 +30,14 @@ cp "$KERNEL_DIR/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb" "$TMP_DIR/d
 echo "==> 合并 Image.gz 和 dtb 为 kernel-dtb..."
 cat "$TMP_DIR/Image.gz" "$TMP_DIR/dtb" > "$TMP_DIR/kernel-dtb"
 
-# -------------------- 4. 拷贝 initrd（从 chroot 中获取） --------------------
-echo "==> 拷贝 initrd.img..."
-INITRD_FILE=$(ls "$CHROOT_DIR/boot"/initrd.img-* 2>/dev/null | head -1)
-if [ -z "$INITRD_FILE" ]; then
-    echo "错误: 未找到 initrd.img，请确保 2.sh 成功执行并生成了 initrd"
+# -------------------- 4. 检查 initrd（直接从 tmp_mkboot 获取） --------------------
+echo "==> 检查 initrd.img..."
+if [ -f "$TMP_DIR/initrd.img" ]; then
+    echo "✅ 找到 initrd.img: $(ls -lh $TMP_DIR/initrd.img)"
+else
+    echo "错误: 未找到 $TMP_DIR/initrd.img，请确保 2.sh 成功执行并拷贝了 initrd"
     exit 1
 fi
-cp "$INITRD_FILE" "$TMP_DIR/initrd.img"
-echo "   使用 initrd: $INITRD_FILE"
-
 # -------------------- 5. 获取 rootfs 的 UUID --------------------
 echo "==> 获取 rootfs 的 UUID..."
 UUID=$(sudo blkid -s UUID -o value "$ROOTFS_IMG")
