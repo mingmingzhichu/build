@@ -7,12 +7,10 @@
 set -e
 
 # -------------------- 配置区域 --------------------
-# 如果是在 Codespaces 中，WORKSPACE 可能是 $PWD，根据实际情况调整
-: "${WORKSPACE:=~/workspaces}"   # 默认 ~/workspaces，可通过环境变量覆盖
+: "${WORKSPACE:=~/workspaces}"   # 可通过环境变量覆盖
 KERNEL_DIR="$WORKSPACE/linux"
-ROOTFS_IMG="$WORKSPACE/rootfs-debian.img"   # 2.sh 生成的 rootfs
+ROOTFS_IMG="$WORKSPACE/rootfs-debian.img"
 TMP_DIR="$WORKSPACE/tmp_mkboot"
-CHROOT_DIR="$WORKSPACE/chroot"
 
 # -------------------- 1. 准备工作目录 --------------------
 echo "==> 准备打包目录 $TMP_DIR"
@@ -21,24 +19,21 @@ rm -rf "$TMP_DIR"/*
 
 # -------------------- 2. 拷贝内核镜像和设备树 --------------------
 echo "==> 拷贝内核和 dtb..."
-# 注意：这里使用 sm8150-oneplus-hotdogb.dtb（一加7T）
-# 如果你编译的是其他设备，请修改文件名
 cp "$KERNEL_DIR/arch/arm64/boot/Image.gz" "$TMP_DIR/"
 cp "$KERNEL_DIR/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb" "$TMP_DIR/dtb"
 
-# -------------------- 3. 合并内核 + dtb --------------------
-echo "==> 合并 Image.gz 和 dtb 为 kernel-dtb..."
-cat "$TMP_DIR/Image.gz" "$TMP_DIR/dtb" > "$TMP_DIR/kernel-dtb"
+# -------------------- 3. （已去掉合并步骤）直接使用 --kernel 和 --dtb --------------------
 
-# -------------------- 4. 检查 initrd（直接从 tmp_mkboot 获取） --------------------
+# -------------------- 4. 检查 initrd --------------------
 echo "==> 检查 initrd.img..."
 if [ -f "$TMP_DIR/initrd.img" ]; then
     echo "✅ 找到 initrd.img: $(ls -lh $TMP_DIR/initrd.img)"
 else
-    echo "错误: 未找到 $TMP_DIR/initrd.img，请确保 2.sh 成功执行并拷贝了 initrd"
+    echo "错误: 未找到 $TMP_DIR/initrd.img，请确保 2.sh 成功拷贝"
     exit 1
 fi
-# -------------------- 5. 获取 rootfs 的 UUID --------------------
+
+# -------------------- 5. 获取 rootfs UUID --------------------
 echo "==> 获取 rootfs 的 UUID..."
 UUID=$(sudo blkid -s UUID -o value "$ROOTFS_IMG")
 if [ -z "$UUID" ]; then
@@ -47,7 +42,7 @@ if [ -z "$UUID" ]; then
 fi
 echo "   UUID: $UUID"
 
-# -------------------- 6. 打包 boot.img --------------------
+# -------------------- 6. 打包 boot.img（使用 --dtb 参数） --------------------
 echo "==> 使用 mkbootimg 打包..."
 mkbootimg --base 0x00000000 \
     --kernel_offset 0x00008000 \
@@ -57,7 +52,8 @@ mkbootimg --base 0x00000000 \
     --second_offset 0x00f00000 \
     --ramdisk "$TMP_DIR/initrd.img" \
     --cmdline "console=tty0 root=UUID=$UUID rw loglevel=3 splash" \
-    --kernel "$TMP_DIR/kernel-dtb" \
+    --kernel "$TMP_DIR/Image.gz" \
+    --dtb "$TMP_DIR/dtb" \
     -o "$TMP_DIR/boot.img"
 
 # -------------------- 7. 输出信息 --------------------
