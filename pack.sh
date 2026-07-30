@@ -17,14 +17,14 @@ CHROOT_DIR="$WORKSPACE/chroot"
 # -------------------- 1. 准备工作目录 --------------------
 echo "==> 准备打包目录 $TMP_DIR"
 mkdir -p "$TMP_DIR"
-rm -rf "$TMP_DIR"/*
+
 
 # -------------------- 2. 拷贝内核镜像和设备树 --------------------
 echo "==> 拷贝内核和 dtb..."
 # 注意：这里使用 sm8150-oneplus-hotdogb.dtb（一加7T）
 # 如果你编译的是其他设备，请修改文件名
-cp "$KERNEL_DIR/arch/arm64/boot/Image.gz" "$TMP_DIR/"
-cp "$KERNEL_DIR/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb" "$TMP_DIR/dtb"
+cp -f "$KERNEL_DIR/arch/arm64/boot/Image.gz" "$TMP_DIR/"
+cp -f "$KERNEL_DIR/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb" "$TMP_DIR/dtb"
 
 # -------------------- 3. 合并内核 + dtb --------------------
 echo "==> 合并 Image.gz 和 dtb 为 kernel-dtb..."
