@@ -54,6 +54,7 @@ mkbootimg --base 0x00000000 \
     --ramdisk_offset 0x01000000 \
     --tags_offset 0x00000100 \
     --pagesize 4096 \
+    --header-version 2 \
     --second_offset 0x00f00000 \
     --ramdisk "$TMP_DIR/initrd.img" \
     --cmdline "console=tty0 root=UUID=$UUID rw " \
