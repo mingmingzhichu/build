@@ -57,7 +57,7 @@ mkbootimg --base 0x00000000 \
     --header-version 2 \
     --second_offset 0x00f00000 \
     --ramdisk "$TMP_DIR/initrd.img" \
-    --cmdline "console=tty0 root=UUID=$UUID rw " \
+    --cmdline "console=tty0 root=/bin/sh rw " \
     --kernel "$TMP_DIR/kernel-dtb" \
     -o "$TMP_DIR/boot.img"
 
