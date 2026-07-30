@@ -56,7 +56,7 @@ mkbootimg --base 0x00000000 \
     --pagesize 4096 \
     --second_offset 0x00f00000 \
     --ramdisk "$TMP_DIR/initrd.img" \
-    --cmdline "console=tty0 root=UUID=$UUID rw loglevel=3 splash" \
+    --cmdline "console=tty0 root=UUID=$UUID rw " \
     --kernel "$TMP_DIR/kernel-dtb" \
     -o "$TMP_DIR/boot.img"
 
