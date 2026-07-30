@@ -120,11 +120,18 @@ if ls "$WORKSPACE"/linux-*.deb 1> /dev/null 2>&1; then
 cd /tmp
 dpkg -i linux-*.deb || true
 apt --fix-broken install -y
+
+# 手动生成 initrd（确保 initramfs-tools 已安装）
+apt install -y initramfs-tools kmod  # 确保这两个包存在
+KERNEL_VERSION=$(ls /lib/modules/ | head -1)
+if [ -n "$KERNEL_VERSION" ]; then
+    echo "==> 生成 initrd for kernel $KERNEL_VERSION"
+    update-initramfs -c -k $KERNEL_VERSION
+fi
 EOF
 else
     echo "警告: 未找到内核 .deb 包，请编译后手动安装。"
 fi
-
 # -------------------- 6. 拷贝 firmware（如果存在） --------------------
 if [ -d "$WORKSPACE/firmware" ]; then
     echo "==> 拷贝 firmware 到 rootfs"
