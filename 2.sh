@@ -140,7 +140,17 @@ if [ -d "$WORKSPACE/firmware" ]; then
 else
     echo "警告: 未找到 firmware 目录，请手动准备。"
 fi
-
+# -------------------- 6.5 拷贝 initrd 到持久目录 --------------------
+echo "==> 拷贝 initrd 到 tmp_mkboot..."
+mkdir -p "$WORKSPACE/tmp_mkboot"
+INITRD_FILE=$(sudo ls "$CHROOT_DIR/boot"/initrd.img-* 2>/dev/null | head -1)
+if [ -n "$INITRD_FILE" ]; then
+    sudo cp "$INITRD_FILE" "$WORKSPACE/tmp_mkboot/initrd.img"
+    sudo chown $USER:$USER "$WORKSPACE/tmp_mkboot/initrd.img"   # 修正权限
+    echo "✅ initrd 已拷贝: $WORKSPACE/tmp_mkboot/initrd.img"
+else
+    echo "警告: 未找到 initrd"
+fi
 # -------------------- 7. 清理并卸载 --------------------
 echo "==> 清理并卸载挂载点"
 sudo umount "$CHROOT_DIR/proc" || true
