@@ -59,7 +59,7 @@ mkbootimg --base 0x00000000 \
     --ramdisk "$TMP_DIR/initrd.img" \
     --cmdline "console=tty0 root=/bin/sh rw " \
     --kernel "$TMP_DIR/Image.gz" \
-    --dtb "$TMP_DIR/dtb"
+    --dtb "$TMP_DIR/dtb"\
     -o "$TMP_DIR/boot.img"
 
 # -------------------- 7. 输出信息 --------------------
