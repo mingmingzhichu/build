@@ -49,18 +49,20 @@ echo "   UUID: $UUID"
 
 # -------------------- 6. 打包 boot.img --------------------
 echo "==> 使用 mkbootimg 打包..."
-mkbootimg --base 0x00000000 \
-    --kernel_offset 0x00008000 \
-    --ramdisk_offset 0x01000000 \
-    --tags_offset 0x00000100 \
-    --pagesize 4096 \
-    --header_version 2 \
-    --second_offset 0x00f00000 \
-    --ramdisk "$TMP_DIR/initrd.img" \
-    --cmdline "console=tty0 root=/bin/sh rw " \
-    --kernel "$TMP_DIR/Image.gz" \
-    --dtb "$TMP_DIR/dtb"\
-    -o "$TMP_DIR/boot.img"
+mkbootimg `
+  --header-version 2 `
+  --base 0x00000000 `
+  --kernel_offset 0x00008000 `
+  --ramdisk_offset 0x01000000 `
+  --tags_offset 0x00000100 `
+  --second_offset 0x00000000 `
+  --dtb_offset 0x01f00000 `
+  --pagesize 4096 `
+  --kernel .\Image.gz `
+  --ramdisk .\initrd.img `
+  --dtb .\sm8150-oneplus-hotdogb.dtb `
+  --cmdline "console=tty0 earlycon clk_ignore_unused pd_ignore_unused loglevel=8" `
+  -o .\boot.img
 
 # -------------------- 7. 输出信息 --------------------
 echo "=================================================="
