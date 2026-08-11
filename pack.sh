@@ -26,9 +26,6 @@ echo "==> 拷贝内核和 dtb..."
 cp -f "$KERNEL_DIR/arch/arm64/boot/Image.gz" "$TMP_DIR/"
 cp -f "$KERNEL_DIR/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb" "$TMP_DIR/dtb"
 
-# -------------------- 3. 合并内核 + dtb --------------------
-echo "==> 合并 Image.gz 和 dtb 为 kernel-dtb..."
-cat "$TMP_DIR/Image.gz" "$TMP_DIR/dtb" > "$TMP_DIR/kernel-dtb"
 
 # -------------------- 4. 检查 initrd（直接从 tmp_mkboot 获取） --------------------
 echo "==> 检查 initrd.img..."
