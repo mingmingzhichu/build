@@ -60,7 +60,7 @@ mkbootimg \
   --pagesize 4096 \
   --kernel $TMP_DIR/Image.gz \
   --ramdisk $TMP_DIR/initrd.img \
-  --dtb $TMP_DIR/sm8150-oneplus-hotdogb.dtb \
+  --dtb $TMP_DIR/dtb \
   --cmdline "console=tty0 earlycon clk_ignore_unused pd_ignore_unused loglevel=8" \
   -o $TMP_DIR/boot.img
 
