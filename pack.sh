@@ -58,7 +58,7 @@ mkbootimg \
   --kernel $TMP_DIR/Image.gz \
   --ramdisk $TMP_DIR/initrd.img \
   --dtb $TMP_DIR/dtb \
-  --cmdline "console=tty0 earlycon clk_ignore_unused pd_ignore_unused loglevel=8" \
+  --cmdline "console=tty0 earlycon efi=novamap earlycon=efifb,mem clk_ignore_unused pd_ignore_unused loglevel=8" \
   -o $TMP_DIR/boot.img
 
 # -------------------- 7. 输出信息 --------------------
