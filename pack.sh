@@ -47,7 +47,7 @@ echo "   UUID: $UUID"
 # -------------------- 6. 打包 boot.img --------------------
 echo "==> 使用 mkbootimg 打包..."
 mkbootimg \
-  --header-version 2 \
+  --header_version 2 \
   --base 0x00000000 \
   --kernel_offset 0x00008000 \
   --ramdisk_offset 0x01000000 \
