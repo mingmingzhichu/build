@@ -58,11 +58,11 @@ mkbootimg \
   --second_offset 0x00000000 \
   --dtb_offset 0x01f00000 \
   --pagesize 4096 \
-  --kernel ./Image.gz \
-  --ramdisk ./initrd.img \
-  --dtb ./sm8150-oneplus-hotdogb.dtb \
+  --kernel $TMP_DIR/Image.gz \
+  --ramdisk $TMP_DIR/initrd.img \
+  --dtb $TMP_DIR/sm8150-oneplus-hotdogb.dtb \
   --cmdline "console=tty0 earlycon clk_ignore_unused pd_ignore_unused loglevel=8" \
-  -o ./boot.img
+  -o $TMP_DIR/boot.img
 
 # -------------------- 7. 输出信息 --------------------
 echo "=================================================="
