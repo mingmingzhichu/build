@@ -46,7 +46,7 @@ jobs:
         cd ..
         export WORKSPACE=$GITHUB_WORKSPACE
         bash <(curl -s https://raw.githubusercontent.com/mingmingzhichu/build/main/2.sh)
-        bash <(curl -s https://raw.githubusercontent.com/mingmingzhichu/build/main/pack.sh)
+        #bash <(curl -s https://raw.githubusercontent.com/mingmingzhichu/build/main/pack.sh)
     - name: Package artifacts
       run: |
         cd linux
