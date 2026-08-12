@@ -60,12 +60,12 @@ jobs:
         cp arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb kernel_artifacts/ 2>/dev/null || true
 
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: sm8150-kernel
         path: linux/kernel_artifacts/
-    - name: Upload boot.img
-      uses: actions/upload-artifact@v4
+    - name: Upload rootfs.img
+      uses: actions/upload-artifact@v6
       with:
-        name: sm8150-boot
-        path: ${{ github.workspace }}/tmp_mkboot/boot.img
+        name: rootfs.img
+        path: 📍 镜像位置: /home/runner/work/build/build/tmp_mkboot/rootfs.img
