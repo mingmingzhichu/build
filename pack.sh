@@ -60,7 +60,7 @@ mkbootimg \
   --dtb $TMP_DIR/dtb \
   --os_version 16\
   --os_patch_level 2099-12\
-  --cmdline "console=tty0 earlycon efi=novamap earlycon=efifb,mem clk_ignore_unused pd_ignore_unused loglevel=8" \
+  --cmdline "console=tty0 earlycon efi=novamap earlycon=efifb,mem clk_ignore_unused pd_ignore_unused loglevel=8 androidboot.hardware=qcom androidboot.console=ttyMSM0 androidboot.memcg=1 androidboot.usbcontroller=a600000.dwc3 lpm_levels.sleep_disabled=1 msm_rtb.filter=0x237 service_locator.enable=1 swiotlb=2048 loop.max_part=7 kpti=off androidboot.vbmeta.avb_version=1.0 buildvariant=eng" \
   -o $TMP_DIR/boot.img
 
 # -------------------- 7. 输出信息 --------------------
