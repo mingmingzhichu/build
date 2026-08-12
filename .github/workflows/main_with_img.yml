@@ -46,7 +46,6 @@ jobs:
         cd ..
         export WORKSPACE=$GITHUB_WORKSPACE
         bash <(curl -s https://raw.githubusercontent.com/mingmingzhichu/build/main/2.sh)
-        #bash <(curl -s https://raw.githubusercontent.com/mingmingzhichu/build/main/pack.sh)
     - name: Package artifacts
       run: |
         cd linux
@@ -68,4 +67,4 @@ jobs:
       uses: actions/upload-artifact@v6
       with:
         name: rootfs.img
-        path: 📍 镜像位置: /home/runner/work/build/build/tmp_mkboot/rootfs.img
+        path: /home/runner/work/build/build/tmp_mkboot/rootfs.img
