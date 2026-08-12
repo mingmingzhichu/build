@@ -58,6 +58,7 @@ mkbootimg \
   --kernel $TMP_DIR/Image.gz \
   --ramdisk $TMP_DIR/initrd.img \
   --dtb $TMP_DIR/dtb \
+  --os_patch_level 2099-12\
   --cmdline "console=tty0 earlycon efi=novamap earlycon=efifb,mem clk_ignore_unused pd_ignore_unused loglevel=8" \
   -o $TMP_DIR/boot.img
 
