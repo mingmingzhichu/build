@@ -89,10 +89,10 @@ EOL
 apt update
 apt upgrade -y
 apt install -y man man-db bash-completion vim tmux network-manager \
-    chrony openssh-server initramfs-tools locales sudo firmware-qcom-soc \
+    chrony openssh-server initramfs-tools locales sudo \
     systemd-resolved \
     grub-efi-arm64-bin grub-efi-arm64-signed \
-    dosfstools efibootmgr \
+    dosfstools efibootmgr zstd \
     --no-install-recommends
 
 # 设置 locale 和时区
@@ -140,9 +140,7 @@ GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 console=ttyMSM0 earlycon loglevel=8 ign
 GRUB_CMDLINE_LINUX=""
 EOL
 
-# 更新 GRUB 配置
-update-grub
-
+grub-mkconfig -o /boot/grub/grub.cfg
 # 清理临时文件
 apt clean
 rm -f /tmp/*
@@ -164,9 +162,7 @@ if [ -n "$KERNEL_VERSION" ]; then
     echo "==> 生成 initrd for kernel $KERNEL_VERSION"
     update-initramfs -c -k $KERNEL_VERSION
 fi
-# 更新 GRUB 以识别新内核
-update-grub
-# 清理临时文件
+grub-mkconfig -o /boot/grub/grub.cfg# 清理临时文件
 rm -f /tmp/linux-*.deb
 EOF
 else
