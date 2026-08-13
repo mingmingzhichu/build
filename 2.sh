@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # 功能：生成两个独立镜像：esp.img (GRUB) + rootfs.img (Debian)
-# 版本：修正版 v2
+# 版本：修正版 v3 - 在 chroot 内真正安装 GRUB
 # ============================================================
 
 set -e
@@ -10,6 +10,7 @@ set -e
 cleanup() {
     echo "==> 执行清理..."
     sudo umount "$ESP_MOUNT" 2>/dev/null || true
+    sudo umount "$CHROOT_DIR/boot/efi" 2>/dev/null || true
     sudo umount "$CHROOT_DIR/proc" 2>/dev/null || true
     sudo umount "$CHROOT_DIR/dev/pts" 2>/dev/null || true
     sudo umount "$CHROOT_DIR/dev" 2>/dev/null || true
@@ -38,73 +39,30 @@ for cmd in dd mkfs.ext4 mkfs.vfat debootstrap mount umount img2simg; do
         exit 1
     fi
 done
-sudo apt install grub-efi-arm64-bin
+
 # ============================================================
-# 第一部分：生成 ESP 镜像 (GRUB UEFI)
+# 第一部分：创建并格式化镜像文件（不复制 GRUB）
 # ============================================================
 echo "=================================================="
 echo "==> 生成 ESP 镜像: $ESP_IMG (大小: $ESP_SIZE)"
 dd if=/dev/zero of="$ESP_IMG" bs=1M count=256 status=progress
 mkfs.vfat -F 32 -n EFI "$ESP_IMG"
 
-echo "==> 挂载 ESP 镜像到 $ESP_MOUNT"
-mkdir -p "$ESP_MOUNT"
-sudo mount "$ESP_IMG" "$ESP_MOUNT"
-
-# 创建 GRUB 目录结构
-sudo mkdir -p "$ESP_MOUNT/EFI/BOOT"
-sudo mkdir -p "$ESP_MOUNT/EFI/Debian"
-
-echo "==> 复制 GRUB UEFI 文件到 ESP..."
-sudo cp "$GRUB_EFI" "$ESP_MOUNT/EFI/BOOT/BOOTAA64.EFI"
-sudo cp "$GRUB_EFI" "$ESP_MOUNT/EFI/Debian/grubaa64.efi"
-
-# 创建 grub.cfg
-sudo tee "$ESP_MOUNT/EFI/Debian/grub.cfg" > /dev/null << 'EOF'
-set timeout=5
-set default=0
-
-# 尝试加载图形界面（如果失败则回退到文本模式）
-insmod efi_gop
-insmod efi_uga
-
-menuentry "Debian Linux" {
-    echo "加载内核..."
-    linux /Image.gz root=UUID=20336aa9-c9de-431a-b679-dcf10065c121 rw console=tty0 console=ttyMSM0 earlycon loglevel=8 ignore_loglevel
-    echo "加载 initrd..."
-    initrd /initrd.img
-}
-
-menuentry "Debian Linux (恢复模式)" {
-    echo "加载内核 (恢复模式)..."
-    linux /Image.gz root=UUID=20336aa9-c9de-431a-b679-dcf10065c121 ro single console=tty0 console=ttyMSM0 earlycon loglevel=8
-    echo "加载 initrd..."
-    initrd /initrd.img
-}
-
-menuentry "UEFI Shell" {
-    chainloader /EFI/BOOT/shell.efi
-}
-EOF
-
-# 创建备用 grub.cfg（EFI/BOOT 目录下的后备）
-sudo ln -sf ../Debian/grub.cfg "$ESP_MOUNT/EFI/BOOT/grub.cfg"
-
-# 卸载 ESP（稍后会重新挂载拷贝内核）
-sudo umount "$ESP_MOUNT"
-echo "✅ ESP 镜像生成完成: $ESP_IMG"
-
-# ============================================================
-# 第二部分：生成 Rootfs 镜像 (Debian)
-# ============================================================
 echo "=================================================="
 echo "==> 生成 Rootfs 镜像: $ROOTFS_IMG (大小: $ROOTFS_SIZE)"
 dd if=/dev/zero of="$ROOTFS_IMG" bs=1G count=${ROOTFS_SIZE%G} status=progress
 mkfs.ext4 -U "$MY_UUID" -F "$ROOTFS_IMG"
 
+# ============================================================
+# 第二部分：挂载并安装系统
+# ============================================================
 echo "==> 挂载 rootfs 到 $CHROOT_DIR"
 sudo mkdir -p "$CHROOT_DIR"
 sudo mount "$ROOTFS_IMG" "$CHROOT_DIR"
+
+echo "==> 挂载 ESP 到 $CHROOT_DIR/boot/efi（用于 chroot 内安装 GRUB）"
+sudo mkdir -p "$CHROOT_DIR/boot/efi"
+sudo mount "$ESP_IMG" "$CHROOT_DIR/boot/efi"
 
 echo "==> 执行 debootstrap（从 Debian 官方源拉取 arm64 架构的 trixie）..."
 sudo debootstrap --arch arm64 trixie "$CHROOT_DIR" http://deb.debian.org/debian
@@ -116,7 +74,7 @@ sudo mount --bind /dev "$CHROOT_DIR/dev"
 sudo mount --bind /dev/pts "$CHROOT_DIR/dev/pts"
 sudo mount --bind /sys "$CHROOT_DIR/sys"
 
-# -------------------- chroot 环境配置 --------------------
+# -------------------- chroot 环境配置（含 GRUB 安装） --------------------
 echo "==> 进入 chroot 执行配置脚本..."
 sudo chroot "$CHROOT_DIR" /bin/bash << 'EOF'
 # 配置软件源（使用中科大镜像加速）
@@ -127,7 +85,7 @@ deb http://mirrors.ustc.edu.cn/debian trixie-backports main contrib non-free non
 deb http://mirrors.ustc.edu.cn/debian-security trixie-security main contrib non-free non-free-firmware
 EOL
 
-# 更新并安装基础包
+# 更新并安装基础包（包含 GRUB UEFI 包）
 apt update
 apt upgrade -y
 apt install -y man man-db bash-completion vim tmux network-manager \
@@ -136,6 +94,7 @@ apt install -y man man-db bash-completion vim tmux network-manager \
     grub-efi-arm64-bin grub-efi-arm64-signed \
     dosfstools efibootmgr \
     --no-install-recommends
+
 # 设置 locale 和时区
 locale-gen en_US.UTF-8 zh_CN.UTF-8
 rm -f /etc/localtime
@@ -165,19 +124,23 @@ RemainAfterExit=true
 WantedBy=default.target
 EOL
 systemctl enable resizefs.service
-# -------------------- 安装 GRUB 到 ESP --------------------
-echo "==> 安装 GRUB 到 ESP 分区..."
-# 注意：此时 ESP 分区应该已经挂载到 /boot/efi
+
+# ============================================================
+# 在 chroot 内真正安装 GRUB 到 ESP
+# ============================================================
+echo "==> 安装 GRUB 到 /boot/efi..."
 grub-install --target=arm64-efi --efi-directory=/boot/efi --bootloader-id=Debian --recheck --no-floppy
 
 # 生成 GRUB 配置文件
 cat > /etc/default/grub << 'EOL'
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR=`lsb_release -i -s 2> /dev/null || echo Debian`
 GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 console=ttyMSM0 earlycon loglevel=8 ignore_loglevel"
 GRUB_CMDLINE_LINUX=""
 EOL
 
+# 更新 GRUB 配置
 update-grub
 
 # 清理临时文件
@@ -201,6 +164,8 @@ if [ -n "$KERNEL_VERSION" ]; then
     echo "==> 生成 initrd for kernel $KERNEL_VERSION"
     update-initramfs -c -k $KERNEL_VERSION
 fi
+# 更新 GRUB 以识别新内核
+update-grub
 # 清理临时文件
 rm -f /tmp/linux-*.deb
 EOF
@@ -212,6 +177,7 @@ KERNEL_VERSION=$(ls /lib/modules/ 2>/dev/null | head -1)
 if [ -n "$KERNEL_VERSION" ]; then
     update-initramfs -c -k $KERNEL_VERSION
 fi
+update-grub
 EOF
 fi
 
@@ -224,42 +190,15 @@ else
     echo "警告: 未找到 firmware 目录，请手动准备"
 fi
 
-# -------------------- 拷贝内核和 initrd 到 ESP 镜像 --------------------
-echo "==> 拷贝内核和 initrd 到 ESP 镜像..."
-sudo mount "$ESP_IMG" "$ESP_MOUNT"
+# ============================================================
+# 清理并卸载（trap 会自动处理）
+# ============================================================
+echo "==> 清理并卸载挂载点..."
+# trap 中的 cleanup 函数会在脚本退出时自动执行
 
-# 查找内核文件（兼容 vmlinuz 和 Image）
-KERNEL_FILE=$(sudo ls "$CHROOT_DIR/boot"/vmlinuz-* 2>/dev/null | head -1)
-if [ -z "$KERNEL_FILE" ]; then
-    KERNEL_FILE=$(sudo ls "$CHROOT_DIR/boot"/Image-* 2>/dev/null | head -1)
-fi
-if [ -n "$KERNEL_FILE" ]; then
-    sudo cp "$KERNEL_FILE" "$ESP_MOUNT/Image.gz"
-    echo "✅ 内核已拷贝: $(basename $KERNEL_FILE)"
-else
-    echo "警告: 未找到内核文件，请检查 /boot 目录"
-fi
-
-# 查找 initrd
-INITRD_FILE=$(sudo ls "$CHROOT_DIR/boot"/initrd.img-* 2>/dev/null | head -1)
-if [ -n "$INITRD_FILE" ]; then
-    sudo cp "$INITRD_FILE" "$ESP_MOUNT/initrd.img"
-    echo "✅ initrd 已拷贝: $(basename $INITRD_FILE)"
-else
-    echo "警告: 未找到 initrd，请检查 /boot 目录"
-fi
-sudo umount "$ESP_MOUNT"
-rmdir "$ESP_MOUNT" 2>/dev/null || true
-
-# -------------------- 清理并卸载 rootfs --------------------
-echo "==> 清理并卸载挂载点"
-sudo umount "$CHROOT_DIR/proc" || true
-sudo umount "$CHROOT_DIR/dev/pts" || true
-sudo umount "$CHROOT_DIR/dev" || true
-sudo umount "$CHROOT_DIR/sys" || true
-sudo umount "$CHROOT_DIR" || true
-
-# -------------------- 转换为 sparse 格式（刷机用） --------------------
+# ============================================================
+# 转换为 sparse 格式（刷机用）
+# ============================================================
 echo "==> 转换为 sparse 格式..."
 which img2simg >/dev/null 2>&1 || { echo "错误: img2simg 未安装"; exit 1; }
 img2simg "$ROOTFS_IMG" "$WORKSPACE/rootfs.img.sparse" || {
@@ -287,12 +226,7 @@ echo "📌 刷机命令："
 echo "   fastboot flash boot $WORKSPACE/esp.img.sparse"
 echo "   fastboot flash userdata $WORKSPACE/rootfs.img.sparse"
 echo ""
-echo "📌 或使用原始镜像（如果 sparse 不兼容）："
-echo "   fastboot flash boot $ESP_IMG"
-echo "   fastboot flash userdata $ROOTFS_IMG"
-echo ""
-echo "📌 启动后 GRUB 菜单将出现，选择 Debian Linux 启动"
+echo "📌 GRUB 已安装在 ESP 中，启动后应显示 GRUB 菜单"
 echo "=================================================="
 
-# 清理 trap 会执行
 exit 0
