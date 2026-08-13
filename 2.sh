@@ -38,15 +38,7 @@ for cmd in dd mkfs.ext4 mkfs.vfat debootstrap mount umount img2simg; do
         exit 1
     fi
 done
-
-# 检查 GRUB UEFI 文件是否存在
-GRUB_EFI="/usr/lib/grub/arm64-efi/grub.efi"
-if [ ! -f "$GRUB_EFI" ]; then
-    echo "错误: 未找到 $GRUB_EFI"
-    echo "请安装: sudo apt install grub-efi-arm64-bin"
-    exit 1
-fi
-
+sudo apt install grub-efi-arm64-bin
 # ============================================================
 # 第一部分：生成 ESP 镜像 (GRUB UEFI)
 # ============================================================
