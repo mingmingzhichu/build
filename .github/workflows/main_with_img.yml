@@ -72,4 +72,4 @@ jobs:
       uses: actions/upload-artifact@v6
       with:
         name: esp.img
-        path: /home/runner/work/build/build/initfs.img.sparse
+        path: /home/runner/work/build/build/rootfs.img.sparse
