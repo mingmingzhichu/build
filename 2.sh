@@ -84,7 +84,7 @@ deb http://mirrors.ustc.edu.cn/debian trixie-updates main contrib non-free non-f
 deb http://mirrors.ustc.edu.cn/debian trixie-backports main contrib non-free non-free-firmware
 deb http://mirrors.ustc.edu.cn/debian-security trixie-security main contrib non-free non-free-firmware
 EOL
-
+export GRUB_DEVICE="UUID=20336aa9-c9de-431a-b679-dcf10065c121"
 # 更新并安装基础包（包含 GRUB UEFI 包）
 apt update
 apt upgrade -y
