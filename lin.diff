@@ -1,5 +1,5 @@
 diff --git a/fs/exec.c b/fs/exec.c
-index 3772c60aa9ba8..f3886931d8d41 100644
+index 3772c60aa9ba8..12a05a1e86a1e 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
 @@ -1887,12 +1887,16 @@ static int do_execveat_common(int fd, struct filename *filename,
@@ -20,17 +20,24 @@ index 3772c60aa9ba8..f3886931d8d41 100644
  	return __do_execve_file(AT_FDCWD, NULL, argv, envp, 0, file);
  }
  
-@@ -1908,6 +1912,9 @@ int do_execve(struct filename *filename,
- int do_execveat(int fd, struct filename *filename,
- 		const char __user *const __user *__argv,
- 		const char __user *const __user *__envp,
+@@ -1902,12 +1906,16 @@ int do_execve(struct filename *filename,
+ {
+ 	struct user_arg_ptr argv = { .ptr.native = __argv };
+ 	struct user_arg_ptr envp = { .ptr.native = __envp };
 +#ifdef CONFIG_KSU_MANUAL_HOOK
 +	ksu_handle_execveat((int *)AT_FDCWD, &filename, &argv, &envp, 0);
 +#endif
+ 	return do_execveat_common(AT_FDCWD, filename, argv, envp, 0);
+ }
+ 
+ int do_execveat(int fd, struct filename *filename,
+ 		const char __user *const __user *__argv,
+ 		const char __user *const __user *__envp,
++
  		int flags)
  {
  	struct user_arg_ptr argv = { .ptr.native = __argv };
-@@ -1929,6 +1936,9 @@ static int compat_do_execve(struct filename *filename,
+@@ -1929,6 +1937,9 @@ static int compat_do_execve(struct filename *filename,
  		.is_compat = true,
  		.ptr.compat = __envp,
  	};
