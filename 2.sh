@@ -87,7 +87,7 @@ apt upgrade -y
 apt install -y man man-db bash-completion vim tmux network-manager \
     chrony openssh-server initramfs-tools locales sudo \
     grub-efi-arm64-bin grub-efi-arm64-signed \
-    dosfstools efibootmgr nano axel wget curl\
+    dosfstools efibootmgr nano axel wget curl firmware-qcom-soc\
     --no-install-recommends
 
 # 5.3 设置 locale 和时区
