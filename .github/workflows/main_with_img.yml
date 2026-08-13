@@ -63,13 +63,13 @@ jobs:
       with:
         name: sm8150-kernel
         path: linux/kernel_artifacts/
-    - name: Upload rootfs.img
+    - name: Upload esp.img
       uses: actions/upload-artifact@v6
       with:
         name: rootfs.img
-        path: /home/runner/work/build/build/tmp_mkboot/rootfs.img
+        path: /home/runner/work/build/build/esp.img.sparse
     - name: Upload rootfs.img
       uses: actions/upload-artifact@v6
       with:
         name: esp.img
-        path: /home/runner/work/build/build/tmp_mkboot/esp.img
+        path: /home/runner/work/build/build/initfs.img.sparse
