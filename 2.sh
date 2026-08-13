@@ -9,7 +9,7 @@ set -e
 WORKSPACE="${WORKSPACE:-$PWD}"
 ROOTFS_IMG="$WORKSPACE/rootfs-debian.img"
 ROOTFS_SIZE="4G"                # 镜像大小（ESP + rootfs）
-ESP_SIZE="256M"                 # EFI 系统分区大小
+ESP_SIZE="400M"                 # EFI 系统分区大小
 CHROOT_DIR="$WORKSPACE/chroot"
 MY_UUID="20336aa9-c9de-431a-b679-dcf10065c121"
 
@@ -87,7 +87,7 @@ apt upgrade -y
 apt install -y man man-db bash-completion vim tmux network-manager \
     chrony openssh-server initramfs-tools locales sudo \
     grub-efi-arm64-bin grub-efi-arm64-signed \
-    dosfstools efibootmgr \
+    dosfstools efibootmgr nano axel wget curl\
     --no-install-recommends
 
 # 5.3 设置 locale 和时区
@@ -99,9 +99,9 @@ ln -s /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
 echo 'oneplus-7t' > /etc/hostname
 
 # 5.5 创建用户 hol
-useradd -m -s /bin/bash hol
-usermod -aG sudo hol
-echo "hol:hol" | chpasswd
+useradd -m -s /bin/bash mmzc
+usermod -aG sudo mmzc
+echo "mmzc:mmzc" | chpasswd
 
 # 5.6 配置自动扩展文件系统服务
 cat > /etc/systemd/system/resizefs.service << 'EOL'
