@@ -92,9 +92,7 @@ apt install -y man man-db bash-completion vim tmux network-manager \
     chrony openssh-server initramfs-tools locales sudo \
     systemd-resolved \
     grub-efi-arm64-bin grub-efi-arm64-signed \
-    dosfstools efibootmgr zstd \
-    --no-install-recommends
-
+    dosfstools efibootmgr zstd grub2-common
 # 设置 locale 和时区
 locale-gen en_US.UTF-8 zh_CN.UTF-8
 rm -f /etc/localtime
