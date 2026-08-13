@@ -68,3 +68,8 @@ jobs:
       with:
         name: rootfs.img
         path: /home/runner/work/build/build/tmp_mkboot/rootfs.img
+    - name: Upload rootfs.img
+      uses: actions/upload-artifact@v6
+      with:
+        name: esp.img
+        path: /home/runner/work/build/build/tmp_mkboot/esp.img
