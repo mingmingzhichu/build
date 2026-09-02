@@ -22,7 +22,7 @@ jobs:
           sudo apt install -y curl axel git build-essential flex bison libssl-dev libncurses5-dev libelf-dev bc python3 rsync file gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabi g++-arm-linux-gnueabi
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/AnyKernel3-master.zip
           # 克隆内核源码和 Clang 工具链
-          git clone https://github.com/yaap/kernel_oneplus_sm8150.git -b sixteen kernel --depth=1 & git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547379.git clang --depth=1 & wait
+          git clone https://github.com/yaap/kernel_oneplus_sm8150.git -b kernel --depth=1 & git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r547379.git clang --depth=1 & wait
           # 设置环境变量
           export KBUILD_BUILD_USER=mmzch
           export KBUILD_BUILD_HOST=localhost
