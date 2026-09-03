@@ -65,7 +65,7 @@ sudo mkdir -p "$CHROOT_DIR/boot/efi"
 sudo mount "$ESP_IMG" "$CHROOT_DIR/boot/efi"
 
 echo "==> 执行 debootstrap（从 Debian 官方源拉取 arm64 架构的 trixie）..."
-sudo debootstrap --arch arm64 trixie "$CHROOT_DIR" http://deb.debian.org/debian
+sudo debootstrap --arch arm64 --foreign trixie "$CHROOT_DIR" http://deb.debian.org/debian
 
 # -------------------- 挂载必要的虚拟文件系统 --------------------
 echo "==> 挂载 /proc /dev /sys"
@@ -77,6 +77,7 @@ sudo mount --bind /sys "$CHROOT_DIR/sys"
 # -------------------- chroot 环境配置（含 GRUB 安装） --------------------
 echo "==> 进入 chroot 执行配置脚本..."
 sudo chroot "$CHROOT_DIR" /bin/bash << 'EOF'
+/debootstrap/debootstrap --second-stage
 # 配置软件源（使用中科大镜像加速）
 cat > /etc/apt/sources.list << 'EOL'
 deb http://mirrors.ustc.edu.cn/debian trixie main contrib non-free non-free-firmware
@@ -123,27 +124,6 @@ WantedBy=default.target
 EOL
 systemctl enable resizefs.service
 
-# ============================================================
-# 在 chroot 内真正安装 GRUB 到 ESP
-# ============================================================
-echo "==> 安装 GRUB 到 /boot/efi..."
-grub-install --target=arm64-efi --efi-directory=/boot/efi --bootloader-id=Debian --recheck --no-floppy
-
-# 生成 GRUB 配置文件
-cat > /etc/default/grub << 'EOL'
-GRUB_DEFAULT=0
-GRUB_TIMEOUT=5
-GRUB_DISTRIBUTOR=`lsb_release -i -s 2> /dev/null || echo Debian`
-GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 console=ttyMSM0 earlycon loglevel=8 ignore_loglevel"
-GRUB_CMDLINE_LINUX=""
-EOL
-
-grub-mkconfig -o /boot/grub/grub.cfg
-# 清理临时文件
-apt clean
-rm -f /tmp/*
-history -c
-EOF
 
 # -------------------- 安装自定义内核 .deb 包（如果存在） --------------------
 echo "==> 尝试安装预编译的内核 .deb 包..."
@@ -160,7 +140,6 @@ if [ -n "$KERNEL_VERSION" ]; then
     echo "==> 生成 initrd for kernel $KERNEL_VERSION"
     update-initramfs -c -k $KERNEL_VERSION
 fi
-grub-mkconfig -o /boot/grub/grub.cfg# 清理临时文件
 rm -f /tmp/linux-*.deb
 EOF
 else
