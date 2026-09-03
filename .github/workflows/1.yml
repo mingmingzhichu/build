@@ -20,7 +20,6 @@ jobs:
             flex bison libssl-dev libelf-dev libncurses5-dev \
             device-tree-compiler bc cpio rsync debhelper \
             axel img2simg debootstrap qemu-user-static binfmt-support
-
           sudo axel -o /usr/local/bin/mkbootimg https://github.com/osm0sis/mkbootimg/releases/latest/download/mkbootimg-linux-x86_64
           sudo chmod +x /usr/local/bin/mkbootimg
 
@@ -28,11 +27,9 @@ jobs:
         run: |
           git clone --depth 1 https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git kernel
           cd kernel/arch/arm64/boot/dts/qcom
-
           rm -f sm8150-oneplus-common.dtsi sm8150-oneplus-hotdogb.dts
           axel -o sm8150-oneplus-common.dtsi https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-common.dtsi
           axel -o sm8150-oneplus-hotdogb.dts https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dts
-
           sed -i 's/dr_mode = "peripheral"/dr_mode = "otg"/g' sm8150-oneplus-common.dtsi
 
       - name: Kernel config & build
@@ -40,7 +37,6 @@ jobs:
           cd kernel
           axel -o arch/arm64/configs/hotdog_defconfig https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- defconfig KCONFIG_DEFCONFIG=arch/arm64/configs/hotdog_defconfig
-
           JOBS=$(nproc --all)
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$JOBS Image.gz dtbs modules
           export DEB_HOST_ARCH=arm64
@@ -50,8 +46,6 @@ jobs:
       - name: Build Debian rootfs + boot.img
         run: |
           ROOTFS_UUID="20336aa9-c9de-431a-b679-dcf10065c121"
-          USER_NAME="mmzc"
-          USER_PASS="mmzc"
           BASE_ADDR="0x00000000"
           KERNEL_OFFSET="0x00008000"
           TAGS_OFFSET="0x00000100"
@@ -61,12 +55,10 @@ jobs:
           rm -f rootfs.img
           dd if=/dev/zero of=rootfs.img bs=1G count=2 status=progress
           mkfs.ext4 -U "$ROOTFS_UUID" -F rootfs.img
-
           sudo rm -rf chroot
           sudo mkdir -p chroot
           sudo mount rootfs.img chroot
           sudo cp "$(which qemu-aarch64-static)" chroot/usr/bin/
-
           sudo debootstrap --arch arm64 --foreign trixie chroot http://mirrors.ustc.edu.cn/debian
 
           sudo mount --bind /proc chroot/proc
@@ -74,21 +66,21 @@ jobs:
           sudo mount --bind /dev/pts chroot/dev/pts
           sudo mount --bind /sys chroot/sys
 
-          sudo chroot chroot /bin/bash <<'EOF'
+          sudo chroot chroot /bin/bash <<'CHROOT_EOF'
 set -e
 /debootstrap/debootstrap --second-stage
 
-cat > /etc/apt/sources.list <<'EOL'
+cat > /etc/apt/sources.list <<'APT_EOF'
 deb http://mirrors.ustc.edu.cn/debian trixie main contrib non-free non-free-firmware
 deb http://mirrors.ustc.edu.cn/debian trixie-updates main contrib non-free non-free-firmware
 deb http://mirrors.ustc.edu.cn/debian-security trixie-security main contrib non-free non-free-firmware
-EOL
+APT_EOF
 
 apt update
 apt upgrade -y
 apt install -y bash-completion vim tmux network-manager chrony openssh-server \
-    initramfs-tools locales locales-all sudo systemd-resolved dosfstools e2fsprogs \
-    firmware-misc-nonfree systemd-growfs
+  initramfs-tools locales locales-all sudo systemd-resolved dosfstools e2fsprogs \
+  firmware-misc-nonfree systemd-growfs
 
 locale-gen en_US.UTF-8 zh_CN.UTF-8
 ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
@@ -100,20 +92,19 @@ useradd -m -s /bin/bash mmzc
 usermod -aG sudo mmzc
 echo "mmzc:mmzc" | chpasswd
 
-cat > /etc/fstab <<'FSTAB'
-UUID=20336aa9-c9de-431a-b679-dcf10065c121  /       ext4    errors=remount-ro   0   1
-tmpfs                /tmp    tmpfs   defaults            0   0
-FSTAB
+cat > /etc/fstab <<'FSTAB_EOF'
+UUID=20336aa9-c9de-431a-b679-dcf10065c121  /  ext4  errors=remount-ro  0  1
+tmpfs                                      /tmp tmpfs defaults           0  0
+FSTAB_EOF
 
 systemctl enable systemd-growfs@-.service
-EOF
+CHROOT_EOF
 
           KERNEL_DEB=$(ls linux-*.deb 2>/dev/null | head -1)
           sudo cp "$KERNEL_DEB" chroot/tmp/kernel.deb
           sudo chroot chroot dpkg -i /tmp/kernel.deb || sudo chroot chroot apt -y --fix-broken install
-
           KERNEL_VER=$(sudo chroot chroot ls /lib/modules/ | head -1)
-          echo "内核版本: $KERNEL_VER"
+          echo "Kernel version: $KERNEL_VER"
 
           sudo cp chroot/boot/vmlinuz-$KERNEL_VER /tmp/kernel.gz
           DTB_PATH="chroot/usr/lib/linux-image-$KERNEL_VER/device-tree/qcom/sm8150-oneplus-hotdogb.dtb"
@@ -125,17 +116,16 @@ EOF
 
           cat /tmp/kernel.gz /tmp/dtb > /tmp/kernel_blob
           mkbootimg \
-              --kernel /tmp/kernel_blob \
-              --ramdisk /tmp/initrd.img \
-              --base "$BASE_ADDR" \
-              --kernel_offset "$KERNEL_OFFSET" \
-              --tags_offset "$TAGS_OFFSET" \
-              --pagesize "$PAGE_SIZE" \
-              --cmdline "$CMDLINE" \
-              -o boot.img
+            --kernel /tmp/kernel_blob \
+            --ramdisk /tmp/initrd.img \
+            --base "$BASE_ADDR" \
+            --kernel_offset "$KERNEL_OFFSET" \
+            --tags_offset "$TAGS_OFFSET" \
+            --pagesize "$PAGE_SIZE" \
+            --cmdline "$CMDLINE" \
+            -o boot.img
 
           img2simg rootfs.img rootfs.img.sparse
-
           sudo umount chroot/proc chroot/dev/pts chroot/dev chroot/sys chroot 2>/dev/null || true
 
       - name: Collect output
