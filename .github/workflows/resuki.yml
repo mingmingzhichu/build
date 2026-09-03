@@ -23,7 +23,7 @@ jobs:
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/AnyKernel3-master.zip
           # 克隆内核源码和 Clang 工具链
           mkdir clang
-          git clone https://github.com/yaap/kernel_oneplus_sm8150.git kernel --depth=1 & git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r596125.git clang --depth=1
+          git clone https://github.com/yaap/kernel_oneplus_sm8150.git kernel --depth=1 & git clone https://gitlab.com/crdroidandroid/android_prebuilts_clang_host_linux-x86_clang-r596125.git clang --depth=1 & wait
           # 设置环境变量
           export KBUILD_BUILD_USER=mmzch
           export KBUILD_BUILD_HOST=localhost
