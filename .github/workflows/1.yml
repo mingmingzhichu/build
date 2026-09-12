@@ -75,7 +75,7 @@ jobs:
           sudo mkdir -p chroot
           sudo mount rootfs.img chroot
 
-          sudo debootstrap --arch=arm64 --foreign trixie chroot http://mirrors.ustc.edu.cn/debian
+          sudo debootstrap --arch=arm64 --foreign trixie chroot http://deb.debian.org/debian/
           sudo cp /usr/bin/qemu-aarch64-static chroot/usr/bin/
 
           sudo mount --bind /proc chroot/proc
@@ -88,9 +88,18 @@ jobs:
           /debootstrap/debootstrap --second-stage
 
           cat > /etc/apt/sources.list <<'APT_EOF'
-          deb http://mirrors.ustc.edu.cn/debian trixie main contrib non-free non-free-firmware
-          deb http://mirrors.ustc.edu.cn/debian trixie-updates main contrib non-free non-free-firmware
-          deb http://mirrors.ustc.edu.cn/debian-security trixie-security main contrib non-free non-free-firmware
+          deb https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie main contrib non-free non-free-firmware
+          # deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie main contrib non-free non-free-firmware
+
+          deb https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-updates main contrib non-free non-free-firmware
+          # deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-updates main contrib non-free non-free-firmware
+
+          deb https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-backports main contrib non-free non-free-firmware
+          # deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-backports main contrib non-free non-free-firmware
+
+          deb https://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
+          # deb-src https://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
+
           APT_EOF
 
           apt-get update
