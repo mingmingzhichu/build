@@ -21,7 +21,7 @@ jobs:
             device-tree-compiler bc cpio rsync debhelper \
             axel img2simg debootstrap qemu-user-static binfmt-support \
             python3
-            wget -O /tmp/AIK-Linux-v3.8-ALL.tar.gz https://xdaforums.com/attachments/aik-linux-v3-8-all-tar-gz.5300923/
+            wget -O /tmp/AIK-Linux-v3.8-ALL.tar.gz https://raw.githubusercontent.com/mingmingzhichu/build/main/aik.zip
 
             mkdir -p /tmp/aik38
             tar -xf /tmp/AIK-Linux-v3.8-ALL.tar.gz -C /tmp/aik38 --strip-components=1 AIK-Linux/bin
