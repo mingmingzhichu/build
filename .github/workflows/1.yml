@@ -1,57 +1,4 @@
-name: Build SM8150 Mainline + Debian for OnePlus7T (hotdogb)
-
-on:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Set swap to 10G
-        uses: pierotofy/set-swap-space@master
-        with:
-          swap-size-gb: 10
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            flex bison libssl-dev libelf-dev libncurses5-dev \
-            device-tree-compiler bc cpio rsync debhelper \
-            axel img2simg debootstrap qemu-user-static binfmt-support \
-            python3
-          sudo axel -o /usr/local/bin/mkbootimg \
-            https://github.com/osm0sis/mkbootimg/releases/latest/download/mkbootimg-linux-x86_64
-          sudo chmod +x /usr/local/bin/mkbootimg
-
-      - name: Clone kernel & replace Caleb 5.19 device tree
-        run: |
-          git clone --depth 1 https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git kernel
-          cd kernel/arch/arm64/boot/dts/qcom
-          rm -f sm8150-oneplus-common.dtsi sm8150-oneplus-hotdogb.dts
-          axel -o sm8150-oneplus-common.dtsi \
-            https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-common.dtsi
-          axel -o sm8150-oneplus-hotdogb.dts \
-            https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dts
-          # 保持 OTG 修改
-          sed -i 's/dr_mode = "peripheral"/dr_mode = "otg"/g' sm8150-oneplus-common.dtsi
-
-      - name: Kernel config & build
-        run: |
-          cd kernel
-          axel -o arch/arm64/configs/hotdog_defconfig \
-            https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config
-
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- hotdog_defconfig
-
-          JOBS=$(nproc --all)
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$JOBS Image.gz dtbs modules
-
-          export DEB_HOST_ARCH=arm64
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- deb-pkg -j$JOBS DPKG_FLAGS="-d"
-
-      - name: Build Debian rootfs + boot.img
+      - name: Build Debian rootfs + boot.img (两种方式)
         run: |
           set -e
           ROOTFS_UUID="20336aa9-c9de-431a-b679-dcf10065c121"
@@ -126,7 +73,7 @@ jobs:
           # 取出内核
           sudo cp chroot/boot/vmlinuz-$KERNEL_VER /tmp/kernel.gz
 
-          # 使用编译出来的 5.19 DTB（不拼接）
+          # 使用编译出来的 5.19 DTB
           DTB_PATH="kernel/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb"
           if [ ! -f "$DTB_PATH" ]; then
             echo "ERROR: $DTB_PATH not found!"
@@ -140,8 +87,21 @@ jobs:
           sudo chroot chroot update-initramfs -c -k "$KERNEL_VER"
           sudo cp chroot/boot/initrd.img-$KERNEL_VER /tmp/initrd.img
 
-          # 不拼接，单独指定 --dtb
+          # ========== 方式1：拼接 DTB（官方推荐） ==========
+          cat /tmp/kernel.gz /tmp/dtb > /tmp/kernel_blob
           mkbootimg \
+            --kernel /tmp/kernel_blob \
+            --ramdisk /tmp/initrd.img \
+            --base "$BASE_ADDR" \
+            --kernel_offset "$KERNEL_OFFSET" \
+            --tags_offset "$TAGS_OFFSET" \
+            --pagesize "$PAGE_SIZE" \
+            --cmdline "$CMDLINE" \
+            -o boot-append.img
+
+          # ========== 方式2：单独 --dtb + header v2 ==========
+          mkbootimg \
+            --header_version 2 \
             --kernel /tmp/kernel.gz \
             --ramdisk /tmp/initrd.img \
             --dtb /tmp/dtb \
@@ -150,7 +110,22 @@ jobs:
             --tags_offset "$TAGS_OFFSET" \
             --pagesize "$PAGE_SIZE" \
             --cmdline "$CMDLINE" \
-            -o boot.img
+            -o boot-dtb.img
+
+          # ========== 生成禁用 AVB 的 vbmeta ==========
+          # 如果系统没有 avbtool，就装一下
+          if ! command -v avbtool >/dev/null 2>&1; then
+            sudo apt-get install -y android-sdk-libsparse-utils || true
+            # 备用：直接用 python 版（很多环境自带）
+            pip3 install --user avbtool || true
+          fi
+
+          # 优先用系统 avbtool，没有就跳过
+          if command -v avbtool >/dev/null 2>&1; then
+            avbtool make_vbmeta_image --flags 2 --padding_size 4096 -o vbmeta-disabled.img
+          else
+            echo "WARNING: avbtool not found, skipping vbmeta generation"
+          fi
 
           img2simg rootfs.img rootfs.img.sparse
 
@@ -162,7 +137,9 @@ jobs:
           cp kernel/arch/arm64/boot/Image.gz output/ || true
           cp kernel/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb output/ || true
           cp linux-*.deb output/ 2>/dev/null || true
-          cp boot.img output/
+          cp boot-append.img output/
+          cp boot-dtb.img output/
+          cp vbmeta-disabled.img output/ 2>/dev/null || true
           cp rootfs.img.sparse output/
           ls -lh output/
 
