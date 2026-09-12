@@ -21,9 +21,12 @@ jobs:
             device-tree-compiler bc cpio rsync debhelper \
             axel img2simg debootstrap qemu-user-static binfmt-support \
             python3
-          sudo axel -o /usr/local/bin/mkbootimg \
-            https://github.com/osm0sis/mkbootimg/releases/latest/download/mkbootimg-linux-x86_64
-          sudo chmod +x /usr/local/bin/mkbootimg
+            wget -O /tmp/aik.zip   https://github.com/osm0sis/Android-Image-Kitchen/archive/refs/heads/master.zip
+            unzip -q /tmp/aik.zip -d /tmp/
+            sudo cp /tmp/Android-Image-Kitchen-master/bin/mkbootimg /usr/local/bin/
+            sudo cp /tmp/Android-Image-Kitchen-master/bin/unpackbootimg /usr/local/bin/
+            sudo chmod +x /usr/local/bin/{mkbootimg,unpackbootimg}
+            rm -rf /tmp/aik.zip /tmp/Android-Image-Kitchen-master
 
       - name: Clone kernel & replace Caleb 5.19 device tree
         run: |
