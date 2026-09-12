@@ -1,3 +1,56 @@
+name: Build SM8150 Mainline + Debian for OnePlus7T (hotdogb)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Set swap to 10G
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            flex bison libssl-dev libelf-dev libncurses5-dev \
+            device-tree-compiler bc cpio rsync debhelper \
+            axel img2simg debootstrap qemu-user-static binfmt-support \
+            python3
+          sudo axel -o /usr/local/bin/mkbootimg \
+            https://github.com/osm0sis/mkbootimg/releases/latest/download/mkbootimg-linux-x86_64
+          sudo chmod +x /usr/local/bin/mkbootimg
+
+      - name: Clone kernel & replace Caleb 5.19 device tree
+        run: |
+          git clone --depth 1 https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git kernel
+          cd kernel/arch/arm64/boot/dts/qcom
+          rm -f sm8150-oneplus-common.dtsi sm8150-oneplus-hotdogb.dts
+          axel -o sm8150-oneplus-common.dtsi \
+            https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-common.dtsi
+          axel -o sm8150-oneplus-hotdogb.dts \
+            https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dts
+          # 保持 OTG 修改
+          sed -i 's/dr_mode = "peripheral"/dr_mode = "otg"/g' sm8150-oneplus-common.dtsi
+
+      - name: Kernel config & build
+        run: |
+          cd kernel
+          axel -o arch/arm64/configs/hotdog_defconfig \
+            https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config
+
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- hotdog_defconfig
+
+          JOBS=$(nproc --all)
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$JOBS Image.gz dtbs modules
+
+          export DEB_HOST_ARCH=arm64
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- deb-pkg -j$JOBS DPKG_FLAGS="-d"
+
       - name: Build Debian rootfs + boot.img (两种方式)
         run: |
           set -e
