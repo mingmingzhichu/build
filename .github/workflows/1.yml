@@ -75,7 +75,7 @@ jobs:
           sudo mkdir -p chroot
           sudo mount rootfs.img chroot
 
-          sudo debootstrap --arch=arm64 --foreign trixie chroot http://deb.debian.org/debian/
+          sudo debootstrap --arch=arm64 --include=ca-certificates --foreign trixie chroot http://deb.debian.org/debian/
           sudo cp /usr/bin/qemu-aarch64-static chroot/usr/bin/
 
           sudo mount --bind /proc chroot/proc
