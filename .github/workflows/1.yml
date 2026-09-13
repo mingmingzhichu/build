@@ -128,8 +128,19 @@ jobs:
           CHROOT_EOF
 
           # 安装内核 deb
-          KERNEL_DEB=$(ls linux-image-*.deb 2>/dev/null | head -1)
-          [ -z "$KERNEL_DEB" ] && KERNEL_DEB=$(ls linux-*.deb 2>/dev/null | head -1)
+          # 只选不带 -dbg/-headers 的 linux-image
+          KERNEL_DEB=$(ls linux-image-*.deb 2>/dev/null | grep -vE '\-dbg|\-headers' | head -1)
+          if [ -z "$KERNEL_DEB" ]; then
+            # fallback 兜底，依然排除dbg
+            KERNEL_DEB=$(ls linux-*.deb 2>/dev/null | grep -vE '\-dbg|\-headers' | head -1)
+          fi
+          if [ -z "$KERNEL_DEB" ]; then
+            echo "ERROR: valid linux-image deb not found"
+            ls -lh linux-*.deb
+            exit 1
+          fi
+
+          
           echo "Installing $KERNEL_DEB"
           sudo cp "$KERNEL_DEB" chroot/tmp/kernel.deb
           sudo chroot chroot dpkg -i /tmp/kernel.deb || \
