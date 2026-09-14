@@ -28,7 +28,7 @@ jobs:
             https://raw.githubusercontent.com/mingmingzhichu/build/main/aik.gz
           mkdir -p /tmp/aik38
           tar -xf /tmp/AIK-Linux-v3.8-ALL.tar.gz -C /tmp/aik38 --strip-components=1 AIK-Linux/bin
-          sudo cp /tmp/aik38/linux/x86_64/{mkbootimg,unpackbootimg} /usr/local/bin/
+          sudo cp /tmp/aik38/bin/linux/x86_64/{mkbootimg,unpackbootimg} /usr/local/bin/
           sudo chmod +x /usr/local/bin/{mkbootimg,unpackbootimg}
 
           # avbtool.py（PyPI 没有 avbtool 包）
