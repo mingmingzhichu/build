@@ -22,19 +22,21 @@ jobs:
             axel debootstrap qemu-user-static binfmt-support \
             python3 wget android-sdk-libsparse-utils
 
-          # 下载并安装 AIK 的 mkbootimg / unpackbootimg
+          # AIK mkbootimg
           wget -O /tmp/AIK-Linux-v3.8-ALL.tar.gz \
             https://raw.githubusercontent.com/mingmingzhichu/build/main/aik.gz
-
           mkdir -p /tmp/aik38
-          # 正确解压路径：AIK-Linux/bin → /tmp/aik38
           tar -xf /tmp/AIK-Linux-v3.8-ALL.tar.gz -C /tmp/aik38 --strip-components=1 AIK-Linux/bin
-
           sudo cp /tmp/aik38/linux/x86_64/{mkbootimg,unpackbootimg} /usr/local/bin/
           sudo chmod +x /usr/local/bin/{mkbootimg,unpackbootimg}
 
-          # 确认工具可用
-          which mkbootimg img2simg
+          # 官方 avbtool.py（PyPI 没有）
+          wget -q -O /usr/local/bin/avbtool \
+            https://cdn.jsdelivr.net/gh/LineageOS/android_external_avb@lineage-21.0/avbtool.py
+          sudo chmod +x /usr/local/bin/avbtool
+
+          which mkbootimg img2simg avbtool
+          python3 /usr/local/bin/avbtool version || true
 
       - name: Clone kernel & replace Caleb 5.19 device tree
         run: |
@@ -45,7 +47,6 @@ jobs:
             https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-common.dtsi
           axel -o sm8150-oneplus-hotdogb.dts \
             https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dts
-          # 保持 OTG 修改
           sed -i 's/dr_mode = "peripheral"/dr_mode = "otg"/g' sm8150-oneplus-common.dtsi
 
       - name: Kernel config & build
@@ -62,16 +63,24 @@ jobs:
           export DEB_HOST_ARCH=arm64
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- deb-pkg -j$JOBS DPKG_FLAGS="-d"
 
-      - name: Build Debian rootfs + boot.img (两种方式)
+      - name: Build Debian rootfs + boot.img (参考 hotdog 可启动参数)
         run: |
           set -e
+
+          # ========== 与 Sr-0w/hotdog deviceinfo 对齐的 boot 参数 ==========
           ROOTFS_UUID="20336aa9-c9de-431a-b679-dcf10065c121"
           BASE_ADDR="0x00000000"
           KERNEL_OFFSET="0x00008000"
+          RAMDISK_OFFSET="0x01000000"   # 关键！你之前缺了
           TAGS_OFFSET="0x00000100"
+          DTB_OFFSET="0x01f00000"       # 关键！你之前缺了
           PAGE_SIZE="4096"
-          CMDLINE="root=UUID=$ROOTFS_UUID rw rootwait clk_ignore_unused pd_ignore_unused console=ttyMSM0,115200n8 earlycon"
+          BOOT_PARTITION_SIZE=100663296 # 96 MiB，OnePlus 7T/Pro boot 分区大小
 
+          # cmdline：保留 root=UUID，并加上参考仓库的调试参数
+          CMDLINE="root=UUID=$ROOTFS_UUID rw rootwait clk_ignore_unused pd_ignore_unused console=ttyMSM0,115200n8 console=tty0 earlycon keep_bootcon no_console_suspend loglevel=8 ignore_loglevel"
+
+          # ---------- rootfs ----------
           rm -f rootfs.img
           dd if=/dev/zero of=rootfs.img bs=1G count=2 status=progress
           mkfs.ext4 -U "$ROOTFS_UUID" -F rootfs.img
@@ -124,7 +133,7 @@ jobs:
           systemctl enable ssh || true
           CHROOT_EOF
 
-          # 安装内核 deb（排除 -dbg / -headers）
+          # 安装内核 deb
           KERNEL_DEB=$(ls linux-image-*.deb 2>/dev/null | grep -vE '\-dbg|\-headers' | head -1)
           if [ -z "$KERNEL_DEB" ]; then
             KERNEL_DEB=$(ls linux-*.deb 2>/dev/null | grep -vE '\-dbg|\-headers' | head -1)
@@ -157,19 +166,7 @@ jobs:
           sudo chroot chroot update-initramfs -c -k "$KERNEL_VER"
           sudo cp chroot/boot/initrd.img-$KERNEL_VER /tmp/initrd.img
 
-          # 方式1：拼接 DTB
-          cat /tmp/kernel.gz /tmp/dtb > /tmp/kernel_blob
-          mkbootimg \
-            --kernel /tmp/kernel_blob \
-            --ramdisk /tmp/initrd.img \
-            --base "$BASE_ADDR" \
-            --kernel_offset "$KERNEL_OFFSET" \
-            --tags_offset "$TAGS_OFFSET" \
-            --pagesize "$PAGE_SIZE" \
-            --cmdline "$CMDLINE" \
-            -o boot-append.img
-
-          # 方式2：单独 --dtb + header v2
+          # ========== 唯一推荐：header v2 + 完整 offset（对齐参考仓库） ==========
           mkbootimg \
             --header_version 2 \
             --kernel /tmp/kernel.gz \
@@ -177,26 +174,36 @@ jobs:
             --dtb /tmp/dtb \
             --base "$BASE_ADDR" \
             --kernel_offset "$KERNEL_OFFSET" \
+            --ramdisk_offset "$RAMDISK_OFFSET" \
             --tags_offset "$TAGS_OFFSET" \
+            --dtb_offset "$DTB_OFFSET" \
             --pagesize "$PAGE_SIZE" \
             --cmdline "$CMDLINE" \
-            -o boot-dtb.img
+            -o boot.img
 
-          # 生成禁用 AVB 的 vbmeta（修复版）
-          if ! command -v avbtool >/dev/null 2>&1 && [ ! -f /tmp/avbtool.py ]; then
-            wget -q -O /tmp/avbtool.py \
-              https://cdn.jsdelivr.net/gh/LineageOS/android_external_avb@lineage-21.0/avbtool.py
-            chmod +x /tmp/avbtool.py
-          fi
+          echo "Raw boot.img size: $(stat -c %s boot.img)"
 
-          if command -v avbtool >/dev/null 2>&1; then
-            avbtool make_vbmeta_image --flags 2 --padding_size 4096 -o vbmeta-disabled.img
-          elif [ -f /tmp/avbtool.py ]; then
-            python3 /tmp/avbtool.py make_vbmeta_image \
-              --flags 2 --padding_size 4096 --output vbmeta-disabled.img
-          else
-            echo "WARNING: avbtool not found, skipping vbmeta generation"
-          fi
+          # ========== 按参考仓库给 boot.img 加 AVB hash footer，并 pad 到 96MiB ==========
+          # 参考：postprocess-boot-avb.sh
+          RAW_SHA=$(sha256sum boot.img | cut -d' ' -f1)
+          python3 /usr/local/bin/avbtool add_hash_footer \
+            --image boot.img \
+            --partition_name boot \
+            --partition_size "$BOOT_PARTITION_SIZE" \
+            --algorithm NONE \
+            --salt "$RAW_SHA"
+
+          [ "$(stat -c %s boot.img)" -eq "$BOOT_PARTITION_SIZE" ] || {
+            echo "ERROR: boot.img size after AVB footer is wrong"
+            exit 1
+          }
+          echo "AVB-padded boot.img size: $(stat -c %s boot.img)"
+
+          # ========== 禁用验证的 vbmeta ==========
+          python3 /usr/local/bin/avbtool make_vbmeta_image \
+            --flags 2 \
+            --padding_size 4096 \
+            --output vbmeta-disabled.img
 
           img2simg rootfs.img rootfs.img.sparse
 
@@ -208,9 +215,8 @@ jobs:
           cp kernel/arch/arm64/boot/Image.gz output/ || true
           cp kernel/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb output/ || true
           cp linux-*.deb output/ 2>/dev/null || true
-          cp boot-append.img output/
-          cp boot-dtb.img output/
-          cp vbmeta-disabled.img output/ 2>/dev/null || true
+          cp boot.img output/
+          cp vbmeta-disabled.img output/
           cp rootfs.img.sparse output/
           ls -lh output/
 
