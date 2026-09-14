@@ -17,19 +17,24 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
-            flex bison libssl-dev libelf-dev libncurses5-dev \
+            flex bison libssl-dev libelf-dev libncurses-dev \
             device-tree-compiler bc cpio rsync debhelper \
-            axel img2simg debootstrap qemu-user-static binfmt-support \
-            python3
-            wget -O /tmp/AIK-Linux-v3.8-ALL.tar.gz https://raw.githubusercontent.com/mingmingzhichu/build/main/aik.gz
+            axel debootstrap qemu-user-static binfmt-support \
+            python3 wget android-sdk-libsparse-utils
 
-            mkdir -p /tmp/aik38
-            tar -xf /tmp/AIK-Linux-v3.8-ALL.tar.gz -C /tmp/aik38 --strip-components=1 AIK-Linux/bin
+          # 下载并安装 AIK 的 mkbootimg / unpackbootimg
+          wget -O /tmp/AIK-Linux-v3.8-ALL.tar.gz \
+            https://raw.githubusercontent.com/mingmingzhichu/build/main/aik.gz
 
-            sudo cp /tmp/aik38/bin/linux/x86_64/{mkbootimg,unpackbootimg} /usr/local/bin/
+          mkdir -p /tmp/aik38
+          # 正确解压路径：AIK-Linux/bin → /tmp/aik38
+          tar -xf /tmp/AIK-Linux-v3.8-ALL.tar.gz -C /tmp/aik38 --strip-components=1 AIK-Linux/bin
 
-            sudo chmod +x /usr/local/bin/{mkbootimg,unpackbootimg}
+          sudo cp /tmp/aik38/linux/x86_64/{mkbootimg,unpackbootimg} /usr/local/bin/
+          sudo chmod +x /usr/local/bin/{mkbootimg,unpackbootimg}
 
+          # 确认工具可用
+          which mkbootimg img2simg
 
       - name: Clone kernel & replace Caleb 5.19 device tree
         run: |
@@ -89,17 +94,9 @@ jobs:
 
           cat > /etc/apt/sources.list <<'APT_EOF'
           deb https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie main contrib non-free non-free-firmware
-          # deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie main contrib non-free non-free-firmware
-
           deb https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-updates main contrib non-free non-free-firmware
-          # deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-updates main contrib non-free non-free-firmware
-
           deb https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-backports main contrib non-free non-free-firmware
-          # deb-src https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-backports main contrib non-free non-free-firmware
-
           deb https://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
-          # deb-src https://security.debian.org/debian-security trixie-security main contrib non-free non-free-firmware
-
           APT_EOF
 
           apt-get update
@@ -124,23 +121,20 @@ jobs:
           tmpfs                                      /tmp tmpfs defaults           0  0
           FSTAB_EOF
 
-          systemctl enable ssh
+          systemctl enable ssh || true
           CHROOT_EOF
 
-          # 安装内核 deb
-          # 只选不带 -dbg/-headers 的 linux-image
+          # 安装内核 deb（排除 -dbg / -headers）
           KERNEL_DEB=$(ls linux-image-*.deb 2>/dev/null | grep -vE '\-dbg|\-headers' | head -1)
           if [ -z "$KERNEL_DEB" ]; then
-            # fallback 兜底，依然排除dbg
             KERNEL_DEB=$(ls linux-*.deb 2>/dev/null | grep -vE '\-dbg|\-headers' | head -1)
           fi
           if [ -z "$KERNEL_DEB" ]; then
             echo "ERROR: valid linux-image deb not found"
-            ls -lh linux-*.deb
+            ls -lh linux-*.deb || true
             exit 1
           fi
 
-          
           echo "Installing $KERNEL_DEB"
           sudo cp "$KERNEL_DEB" chroot/tmp/kernel.deb
           sudo chroot chroot dpkg -i /tmp/kernel.deb || \
@@ -149,10 +143,8 @@ jobs:
           KERNEL_VER=$(sudo chroot chroot ls /lib/modules/ | head -1)
           echo "Kernel version: $KERNEL_VER"
 
-          # 取出内核
           sudo cp chroot/boot/vmlinuz-$KERNEL_VER /tmp/kernel.gz
 
-          # 使用编译出来的 5.19 DTB
           DTB_PATH="kernel/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb"
           if [ ! -f "$DTB_PATH" ]; then
             echo "ERROR: $DTB_PATH not found!"
@@ -162,11 +154,10 @@ jobs:
           echo "Using DTB: $DTB_PATH"
           cp "$DTB_PATH" /tmp/dtb
 
-          # 生成 initramfs
           sudo chroot chroot update-initramfs -c -k "$KERNEL_VER"
           sudo cp chroot/boot/initrd.img-$KERNEL_VER /tmp/initrd.img
 
-          # ========== 方式1：拼接 DTB（官方推荐） ==========
+          # 方式1：拼接 DTB
           cat /tmp/kernel.gz /tmp/dtb > /tmp/kernel_blob
           mkbootimg \
             --kernel /tmp/kernel_blob \
@@ -178,7 +169,7 @@ jobs:
             --cmdline "$CMDLINE" \
             -o boot-append.img
 
-          # ========== 方式2：单独 --dtb + header v2 ==========
+          # 方式2：单独 --dtb + header v2
           mkbootimg \
             --header_version 2 \
             --kernel /tmp/kernel.gz \
@@ -191,17 +182,18 @@ jobs:
             --cmdline "$CMDLINE" \
             -o boot-dtb.img
 
-          # ========== 生成禁用 AVB 的 vbmeta ==========
-          # 如果系统没有 avbtool，就装一下
-          if ! command -v avbtool >/dev/null 2>&1; then
-            sudo apt-get install -y android-sdk-libsparse-utils || true
-            # 备用：直接用 python 版（很多环境自带）
-            pip3 install --user avbtool || true
+          # 生成禁用 AVB 的 vbmeta（修复版）
+          if ! command -v avbtool >/dev/null 2>&1 && [ ! -f /tmp/avbtool.py ]; then
+            wget -q -O /tmp/avbtool.py \
+              https://cdn.jsdelivr.net/gh/LineageOS/android_external_avb@lineage-21.0/avbtool.py
+            chmod +x /tmp/avbtool.py
           fi
 
-          # 优先用系统 avbtool，没有就跳过
           if command -v avbtool >/dev/null 2>&1; then
             avbtool make_vbmeta_image --flags 2 --padding_size 4096 -o vbmeta-disabled.img
+          elif [ -f /tmp/avbtool.py ]; then
+            python3 /tmp/avbtool.py make_vbmeta_image \
+              --flags 2 --padding_size 4096 --output vbmeta-disabled.img
           else
             echo "WARNING: avbtool not found, skipping vbmeta generation"
           fi
