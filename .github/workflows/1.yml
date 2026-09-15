@@ -62,6 +62,10 @@ jobs:
           cd kernel
           axel -o arch/arm64/configs/hotdog_defconfig \
             https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config
+          sed -i '/^CONFIG_EFI/d;/^# CONFIG_EFI is not set$/d' arch/arm64/configs/hotdog_defconfig
+          echo '# CONFIG_EFI is not set' >> arch/arm64/configs/hotdog_defconfig
+          wget -O /tmp/entry-layout.patch https://raw.githubusercontent.com/Sr-0w/hotdog-linux-bringup/main/patches/experimental-android-kernel-entry-layout.patch
+          patch -p1 < /tmp/entry-layout.patch
 
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- hotdog_defconfig
 
