@@ -71,7 +71,7 @@ jobs:
           sed -i 's/CONFIG_QCOM_WDT=m/CONFIG_QCOM_WDT=y/' arch/arm64/configs/hotdog_defconfig
           wget -O /tmp/entry-layout.patch https://raw.githubusercontent.com/Sr-0w/hotdog-linux-bringup/main/patches/experimental-android-kernel-entry-layout.patch
           patch -p1 < /tmp/entry-layout.patch
-          sed -i '1i#include <linux/gpio/consumer.h>' drivers/power/supply/idtp9418.c
+          
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- hotdog_defconfig
           JOBS=$(nproc --all)
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$JOBS Image.gz dtbs modules
