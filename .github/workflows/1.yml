@@ -24,13 +24,13 @@ jobs:
             python3 wget android-sdk-libsparse-utils
 
           # AIK mkbootimg / unpackbootimg
-          wget -O /tmp/AIK-Linux-v3.8-ALL.tar.gz \
-            https://raw.githubusercontent.com/mingmingzhichu/build/main/aik.gz
-          mkdir -p /tmp/aik38
-          tar -xf /tmp/AIK-Linux-v3.8-ALL.tar.gz -C /tmp/aik38 --strip-components=1 AIK-Linux/bin
-          sudo cp /tmp/aik38/bin/linux/x86_64/{mkbootimg,unpackbootimg} /usr/local/bin/
-          sudo chmod +x /usr/local/bin/{mkbootimg,unpackbootimg}
-
+          #wget -O /tmp/AIK-Linux-v3.8-ALL.tar.gz \
+            #https://raw.githubusercontent.com/mingmingzhichu/build/main/aik.gz
+          #mkdir -p /tmp/aik38
+          #tar -xf /tmp/AIK-Linux-v3.8-ALL.tar.gz -C /tmp/aik38 --strip-components=1 AIK-Linux/bin
+          #sudo cp /tmp/aik38/bin/linux/x86_64/{mkbootimg,unpackbootimg} /usr/local/bin/
+          #sudo chmod +x /usr/local/bin/{mkbootimg,unpackbootimg}
+          sudo apt-get install -y android-tools-mkbootimg
           # avbtool.py（PyPI 没有 avbtool 包）
           wget -q -O /usr/local/bin/avbtool \
             https://cdn.jsdelivr.net/gh/LineageOS/android_external_avb@lineage-21.0/avbtool.py
