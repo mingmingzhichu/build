@@ -34,7 +34,7 @@ jobs:
       - name: Clone kernel & apply hotdogb DTS fixes
         run: |
           set -e
-          git clone --depth 1 https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git kernel
+          git clone --depth 1 https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git -b sm8150/6.16 kernel
           cd kernel/arch/arm64/boot/dts/qcom
           rm -f sm8150-oneplus-common.dtsi sm8150-oneplus-hotdogb.dts
           axel -o sm8150-oneplus-common.dtsi \
