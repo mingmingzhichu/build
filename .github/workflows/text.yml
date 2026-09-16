@@ -1,0 +1,258 @@
+name: Build SM8150 Mainline + Debian for OnePlus7T (hotdogb) test
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Set swap to 10G
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
+
+      - name: Install dependencies
+        run: |
+          set -e
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            flex bison libssl-dev libelf-dev libncurses-dev \
+            device-tree-compiler bc cpio rsync debhelper \
+            axel debootstrap qemu-user-static binfmt-support \
+            python3 wget android-sdk-libsparse-utils
+          # AIK mkbootimg / unpackbootimg
+          wget -O /tmp/AIK-Linux-v3.8-ALL.tar.gz \
+            https://raw.githubusercontent.com/mingmingzhichu/build/main/aik.gz
+          mkdir -p /tmp/aik38
+          tar -xf /tmp/AIK-Linux-v3.8-ALL.tar.gz -C /tmp/aik38 --strip-components=1 AIK-Linux/bin
+          sudo cp /tmp/aik38/bin/linux/x86_64/{mkbootimg,unpackbootimg} /usr/local/bin/
+          sudo chmod +x /usr/local/bin/{mkbootimg,unpackbootimg}
+          # avbtool.py
+          wget -q -O /usr/local/bin/avbtool \
+            https://cdn.jsdelivr.net/gh/LineageOS/android_external_avb@lineage-21.0/avbtool.py
+          sudo chmod +x /usr/local/bin/avbtool
+          which mkbootimg img2simg
+
+      - name: Clone kernel & apply hotdogb DTS fixes
+        run: |
+          set -e
+          git clone --depth 1 https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git kernel
+          cd kernel/arch/arm64/boot/dts/qcom
+          rm -f sm8150-oneplus-common.dtsi sm8150-oneplus-hotdogb.dts
+          axel -o sm8150-oneplus-common.dtsi \
+            https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-common.dtsi
+          axel -o sm8150-oneplus-hotdogb.dts \
+            https://gitlab.com/sm8150-mainline/linux/-/raw/caleb/op7-5.19-dev/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dts
+
+          # OTG
+          sed -i 's/dr_mode = "peripheral"/dr_mode = "otg"/g' sm8150-oneplus-common.dtsi
+          # compatible 笔误
+          sed -i 's/oneplus,hotdobg/oneplus,hotdogb/g' sm8150-oneplus-hotdogb.dts
+
+          # === Sr-0w direct-boot DTB 必要修改 ===
+          # 1. Apps SMMU 注册失败(-EINVAL)，从 UFS/QUP/DWC3 删 iommus
+          sed -i '/iommus = </d' sm8150-oneplus-common.dtsi
+
+          # 2. UFS 删 qcom,ice
+          sed -i '/qcom,ice = </d' sm8150-oneplus-common.dtsi
+
+          # 3. 固件保留内存 0x89d00000-0x8b700000
+          cat >> sm8150-oneplus-hotdogb.dts <<'EOF'
+
+/ {
+	reserved-memory {
+		hotdog-firmware-gap@89d00000 {
+			reg = <0x0 0x89d00000 0x0 0x01a00000>;
+			no-map;
+		};
+	};
+};
+EOF
+
+          # 4. RAM 窗口收窄到低 bank（SMMU bypass 需要 DMA < 4GB）
+          sed -i 's/reg = <0x0 0x80000000 0x0 0x0>/reg = <0x0 0x80000000 0x0 0x3bb00000>/' sm8150-oneplus-common.dtsi
+
+          echo "=== DTS patches applied ==="
+          grep -c "iommus" sm8150-oneplus-common.dtsi || true
+          grep -c "qcom,ice" sm8150-oneplus-common.dtsi || true
+          grep "firmware-gap" sm8150-oneplus-hotdogb.dts
+
+      - name: Kernel config & build
+        run: |
+          set -e
+          cd kernel
+          axel -o arch/arm64/configs/hotdog_defconfig \
+            https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config
+
+          # EFI 关
+          sed -i '/^CONFIG_EFI/d;/^# CONFIG_EFI is not set$/d' arch/arm64/configs/hotdog_defconfig
+          echo '# CONFIG_EFI is not set' >> arch/arm64/configs/hotdog_defconfig
+
+          # 关 RAID6 benchmark（秒回 fastboot 头号嫌疑）
+          sed -i 's/CONFIG_RAID6_PQ_BENCHMARK=y/# CONFIG_RAID6_PQ_BENCHMARK is not set/' arch/arm64/configs/hotdog_defconfig
+
+          # 看门狗必须内置（=m 时启动早期没人喂狗直接复位）
+          sed -i 's/CONFIG_QCOM_WDT=m/CONFIG_QCOM_WDT=y/' arch/arm64/configs/hotdog_defconfig
+
+          # entry-layout patch
+          wget -O /tmp/entry-layout.patch https://raw.githubusercontent.com/Sr-0w/hotdog-linux-bringup/main/patches/experimental-android-kernel-entry-layout.patch
+          patch -p1 < /tmp/entry-layout.patch
+
+          # idtp9418 编译修复
+          sed -i '1i#include <linux/gpio/consumer.h>' drivers/power/supply/idtp9418.c
+
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- hotdog_defconfig
+          JOBS=$(nproc --all)
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$JOBS Image.gz dtbs modules
+          export DEB_HOST_ARCH=arm64
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- deb-pkg -j$JOBS DPKG_FLAGS="-d"
+
+      - name: Build Debian rootfs + boot images
+        run: |
+          set -e
+          ROOTFS_UUID="20336aa9-c9de-431a-b679-dcf10065c121"
+          BASE_ADDR="0x00000000"
+          KERNEL_OFFSET="0x00008000"
+          RAMDISK_OFFSET="0x01000000"
+          TAGS_OFFSET="0x00000100"
+          DTB_OFFSET="0x01f00000"
+          PAGE_SIZE="4096"
+          BOOT_PARTITION_SIZE=100663296
+          # 加 iommu passthrough（SMMU 注册失败时绕过）
+          CMDLINE="root=UUID=$ROOTFS_UUID rw rootwait clk_ignore_unused pd_ignore_unused iommu.passthrough=1 arm-smmu.disable_bypass=0 console=ttyMSM0,115200n8 console=tty0 earlycon keep_bootcon no_console_suspend loglevel=8 ignore_loglevel"
+
+          rm -f rootfs.img
+          dd if=/dev/zero of=rootfs.img bs=1G count=2 status=progress
+          mkfs.ext4 -U "$ROOTFS_UUID" -F rootfs.img
+
+          sudo rm -rf chroot
+          sudo mkdir -p chroot
+          sudo mount rootfs.img chroot
+
+          sudo debootstrap --arch=arm64 --include=ca-certificates --foreign trixie chroot http://deb.debian.org/debian
+          sudo cp /usr/bin/qemu-aarch64-static chroot/usr/bin/
+
+          sudo mount --bind /proc chroot/proc
+          sudo mount --bind /sys  chroot/sys
+          sudo mount --bind /dev  chroot/dev
+          sudo mount --bind /dev/pts chroot/dev/pts
+
+          sudo chroot chroot /bin/bash <<'CHROOT_EOF'
+          set -e
+          /debootstrap/debootstrap --second-stage
+          cat > /etc/apt/sources.list <<'APT_EOF'
+          deb https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie main contrib non-free non-free-firmware
+          deb https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-updates main contrib non-free non-free-firmware
+          deb https://mirrors.tuna.tsinghua.edu.cn/debian/ trixie-backports main contrib non-free non-free-firmware
+          APT_EOF
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            bash-completion vim tmux network-manager chrony openssh-server \
+            initramfs-tools locales sudo dosfstools e2fsprogs \
+            firmware-misc-nonfree
+          locale-gen en_US.UTF-8 zh_CN.UTF-8
+          ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
+          echo 'Asia/Shanghai' > /etc/timezone
+          echo 'oneplus-7t' > /etc/hostname
+          echo '127.0.0.1 localhost' >> /etc/hosts
+          echo '127.0.1.1 oneplus-7t' >> /etc/hosts
+          useradd -m -s /bin/bash -G sudo mmzc
+          echo "mmzc:mmzc" | chpasswd
+          cat > /etc/fstab <<'FSTAB_EOF'
+          UUID=20336aa9-c9de-431a-b679-dcf10065c121  /  ext4  errors=remount-ro  0  1
+          tmpfs                                      /tmp tmpfs defaults           0  0
+          FSTAB_EOF
+          systemctl enable ssh || true
+          CHROOT_EOF
+
+          KERNEL_DEB=$(ls linux-image-*.deb 2>/dev/null | grep -vE '\-dbg|\-headers' | head -1)
+          if [ -z "$KERNEL_DEB" ]; then
+            KERNEL_DEB=$(ls linux-*.deb 2>/dev/null | grep -vE '\-dbg|\-headers' | head -1)
+          fi
+          echo "Installing $KERNEL_DEB"
+          sudo cp "$KERNEL_DEB" chroot/tmp/kernel.deb
+          sudo chroot chroot dpkg -i /tmp/kernel.deb || \
+            sudo chroot chroot apt-get -y --fix-broken install
+
+          KERNEL_VER=$(sudo chroot chroot ls /lib/modules/ | head -1)
+          echo "Kernel version: $KERNEL_VER"
+          sudo cp chroot/boot/vmlinuz-$KERNEL_VER /tmp/kernel.gz
+
+          DTB_PATH="kernel/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb"
+          if [ ! -f "$DTB_PATH" ]; then
+            echo "ERROR: $DTB_PATH not found!"
+            find kernel -name "*hotdogb*.dtb" || true
+            exit 1
+          fi
+          echo "Using DTB: $DTB_PATH"
+          cp "$DTB_PATH" /tmp/dtb
+
+          sudo chroot chroot update-initramfs -c -k "$KERNEL_VER"
+          sudo cp chroot/boot/initrd.img-$KERNEL_VER /tmp/initrd.img
+
+          # header v2 + dtb
+          mkbootimg \
+            --header_version 2 \
+            --kernel /tmp/kernel.gz \
+            --ramdisk /tmp/initrd.img \
+            --dtb /tmp/dtb \
+            --base "$BASE_ADDR" \
+            --kernel_offset "$KERNEL_OFFSET" \
+            --ramdisk_offset "$RAMDISK_OFFSET" \
+            --tags_offset "$TAGS_OFFSET" \
+            --dtb_offset "$DTB_OFFSET" \
+            --pagesize "$PAGE_SIZE" \
+            --cmdline "$CMDLINE" \
+            -o boot-dtb-raw.img
+
+          # append
+          cat /tmp/kernel.gz /tmp/dtb > /tmp/kernel_blob
+          mkbootimg \
+            --kernel /tmp/kernel_blob \
+            --ramdisk /tmp/initrd.img \
+            --base "$BASE_ADDR" \
+            --kernel_offset "$KERNEL_OFFSET" \
+            --ramdisk_offset "$RAMDISK_OFFSET" \
+            --tags_offset "$TAGS_OFFSET" \
+            --pagesize "$PAGE_SIZE" \
+            --cmdline "$CMDLINE" \
+            -o boot-append-raw.img
+
+          pad_boot() {
+            local src="$1" dst="$2"
+            cp "$src" "$dst"
+            local raw_sha
+            raw_sha=$(sha256sum "$dst" | cut -d' ' -f1)
+            python3 /usr/local/bin/avbtool add_hash_footer \
+              --image "$dst" \
+              --partition_name boot \
+              --partition_size "$BOOT_PARTITION_SIZE" \
+              --algorithm NONE \
+              --salt "$raw_sha"
+            echo "OK: $dst padded"
+          }
+          pad_boot boot-dtb-raw.img boot-dtb.img
+          pad_boot boot-append-raw.img boot-append.img
+
+          python3 /usr/local/bin/avbtool make_vbmeta_image \
+            --flags 2 --padding_size 4096 --output vbmeta-disabled.img
+
+          img2simg rootfs.img rootfs.img.sparse
+          sudo umount -l chroot/proc chroot/sys chroot/dev/pts chroot/dev chroot 2>/dev/null || true
+
+      - name: Collect output
+        run: |
+          mkdir -p output
+          cp boot-dtb.img output/
+          cp boot-append.img output/
+          cp vbmeta-disabled.img output/
+          cp rootfs.img.sparse output/
+          ls -lh output/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: oneplus7t-debian-full
+          path: output/
+          retention-days: 7
