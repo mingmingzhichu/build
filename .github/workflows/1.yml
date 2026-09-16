@@ -64,6 +64,8 @@ jobs:
             https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config
           sed -i '/^CONFIG_EFI/d;/^# CONFIG_EFI is not set$/d' arch/arm64/configs/hotdog_defconfig
           echo '# CONFIG_EFI is not set' >> arch/arm64/configs/hotdog_defconfig
+          sed -i '/^RAID6_PQ_BENCHMARK/d;/^# RAID6_PQ_BENCHMARK is not set$/d' arch/arm64/configs/hotdog_defconfig
+          echo '# RAID6_PQ_BENCHMARK is not set' >> arch/arm64/configs/hotdog_defconfig
           wget -O /tmp/entry-layout.patch https://raw.githubusercontent.com/Sr-0w/hotdog-linux-bringup/main/patches/experimental-android-kernel-entry-layout.patch
           patch -p1 < /tmp/entry-layout.patch
           sed -i '1i#include <linux/gpio/consumer.h>' drivers/power/supply/idtp9418.c
