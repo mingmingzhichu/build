@@ -259,7 +259,7 @@ jobs:
           ls -lh output/
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: oneplus7t-debian-full
           path: output/
