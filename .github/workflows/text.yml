@@ -69,9 +69,17 @@ jobs:
           echo '# CONFIG_EFI is not set' >> arch/arm64/configs/hotdog_defconfig
           sed -i 's/CONFIG_RAID6_PQ_BENCHMARK=y/# CONFIG_RAID6_PQ_BENCHMARK is not set/' arch/arm64/configs/hotdog_defconfig
           sed -i 's/CONFIG_QCOM_WDT=m/CONFIG_QCOM_WDT=y/' arch/arm64/configs/hotdog_defconfig
-          wget -O /tmp/entry-layout.patch https://raw.githubusercontent.com/Sr-0w/hotdog-linux-bringup/main/patches/experimental-android-kernel-entry-layout.patch
-          patch -p1 < /tmp/entry-layout.patch
-          
+
+          # clearstaff patches (替代旧的 experimental patch)
+          wget -q -O /tmp/0002.patch https://raw.githubusercontent.com/Sr-0w/hotdog-linux-bringup/main/patches/clearstaff/0002-arm64-hotdog-direct-entry.patch
+          wget -q -O /tmp/0010.patch https://raw.githubusercontent.com/Sr-0w/hotdog-linux-bringup/main/patches/clearstaff/0010-arm64-hotdog-match-working-image-size.patch
+          wget -q -O /tmp/0014.patch https://raw.githubusercontent.com/Sr-0w/hotdog-linux-bringup/main/patches/clearstaff/0014-ufs-qcom-force-dma32-without-smmu.patch
+          patch -p1 < /tmp/0002.patch
+          patch -p1 < /tmp/0010.patch
+          patch -p1 < /tmp/0014.patch
+
+          [ -f drivers/power/supply/idtp9418.c ] && sed -i '1i#include <linux/gpio/consumer.h>' drivers/power/supply/idtp9418.c || true
+
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- hotdog_defconfig
           JOBS=$(nproc --all)
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$JOBS Image.gz dtbs modules
