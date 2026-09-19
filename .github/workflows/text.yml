@@ -65,8 +65,6 @@ jobs:
           cd kernel
           axel -o arch/arm64/configs/hotdog_defconfig \
             https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config
-          sed -i '/^CONFIG_EFI/d;/^# CONFIG_EFI is not set$/d' arch/arm64/configs/hotdog_defconfig
-          echo '# CONFIG_EFI is not set' >> arch/arm64/configs/hotdog_defconfig
           sed -i 's/CONFIG_RAID6_PQ_BENCHMARK=y/# CONFIG_RAID6_PQ_BENCHMARK is not set/' arch/arm64/configs/hotdog_defconfig
           sed -i 's/CONFIG_QCOM_WDT=m/CONFIG_QCOM_WDT=y/' arch/arm64/configs/hotdog_defconfig
 
