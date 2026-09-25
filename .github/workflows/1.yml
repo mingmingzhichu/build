@@ -55,15 +55,6 @@ jobs:
             sed -i '/#include <dt-bindings\/gpio\/gpio.h>/a#include <dt-bindings/usb/pd.h>' sm8150-oneplus-hotdogb.dts
             cat >> sm8150-oneplus-hotdogb.dts <<'DTS_EOF'
 
-              / {
-                reserved-memory {
-                  hotdog-fw-gap@89d00000 {
-                    reg = <0x0 0x89d00000 0x0 0x01a00000>;
-                    no-map;
-                  };
-                };
-              };
-
             &ufs_mem_hc {
               /delete-property/ reset-gpios;
             };
@@ -139,15 +130,6 @@ jobs:
           cd kernel
           axel -o arch/arm64/configs/hotdog_defconfig \
             https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config
-          sed -i '/^CONFIG_EFI=/d;/^# CONFIG_EFI is not set$/d;/^CONFIG_EFI_STUB=/d' arch/arm64/configs/hotdog_defconfig
-          echo 'CONFIG_EFI=y' >> arch/arm64/configs/hotdog_defconfig
-          echo 'CONFIG_EFI_STUB=y' >> arch/arm64/configs/hotdog_defconfig
-          sed -i 's/CONFIG_RAID6_PQ_BENCHMARK=y/# CONFIG_RAID6_PQ_BENCHMARK is not set/' arch/arm64/configs/hotdog_defconfig
-          sed -i 's/CONFIG_QCOM_WDT=m/CONFIG_QCOM_WDT=y/' arch/arm64/configs/hotdog_defconfig
-          echo '# RAID6_PQ_BENCHMARK is not set' >> arch/arm64/configs/hotdog_defconfig
-          wget -O /tmp/entry-layout.patch https://raw.githubusercontent.com/Sr-0w/hotdog-linux-bringup/main/patches/experimental-android-kernel-entry-layout.patch
-          patch -p1 < /tmp/entry-layout.patch
-          sed -i '1i#include <linux/gpio/consumer.h>' drivers/power/supply/idtp9418.c
 
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- hotdog_defconfig
 
