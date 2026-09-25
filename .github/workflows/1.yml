@@ -24,23 +24,11 @@ jobs:
             python3 wget android-sdk-libsparse-utils \
             dosfstools grub-common mtools
 
-          # Ubuntu 的 ARM64 包在 ports 源；不要给宿主机全局启用 arm64，
-          # 否则 security.ubuntu.com 会返回 arm64 Packages 404。
-          cat > /tmp/ubuntu-arm64-ports.list <<'APT_EOF'
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main universe
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe
-          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main universe
-          APT_EOF
-          sudo apt-get \
-            -o Dir::Etc::sourcelist=/tmp/ubuntu-arm64-ports.list \
-            -o Dir::Etc::sourceparts=- \
-            -o APT::Architecture=arm64 update
           cd /tmp
-          apt-get \
-            -o Dir::Etc::sourcelist=/tmp/ubuntu-arm64-ports.list \
-            -o Dir::Etc::sourceparts=- \
-            -o APT::Architecture=arm64 download grub-efi-arm64-bin
-          sudo dpkg-deb -x grub-efi-arm64-bin_*.deb /tmp/grub-arm64
+          wget --timeout=30 --tries=3 --show-progress -O grub-efi-arm64-bin.deb \
+            http://ports.ubuntu.com/ubuntu-ports/pool/main/g/grub2-unsigned/grub-efi-arm64-bin_2.06-2ubuntu14.8_arm64.deb
+          echo 'b07844c4fee026737ce87d0ebf735868073656d3b78989bc5e9f2ed378af9185  grub-efi-arm64-bin.deb' | sha256sum -c -
+          sudo dpkg-deb -x grub-efi-arm64-bin.deb /tmp/grub-arm64
           sudo cp -a /tmp/grub-arm64/usr/lib/grub/arm64-efi /usr/lib/grub/
 
           which img2simg grub-mkstandalone mkfs.vfat
