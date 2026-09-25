@@ -13,8 +13,9 @@ jobs:
           swap-size-gb: 10
 
       - name: Install dependencies
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
@@ -34,8 +35,9 @@ jobs:
           which img2simg grub-mkstandalone mkfs.vfat
 
       - name: Clone kernel & apply hotdogb DTS (Caleb + small fix)
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           git clone --depth 1 https://gitlab.postmarketos.org/soc/qualcomm-sm8150/linux.git kernel
           cd kernel/arch/arm64/boot/dts/qcom
           rm -f sm8150-oneplus-common.dtsi sm8150-oneplus-hotdogb.dts
@@ -51,82 +53,83 @@ jobs:
           sed -i 's/oneplus,hotdobg/oneplus,hotdogb/g' sm8150-oneplus-hotdogb.dts
           sed -i 's/reg = <0x0 0x80000000 0x0 0x0>/reg = <0x0 0x80000000 0x0 0x3bb00000>/' sm8150-oneplus-common.dtsi
 
-            # 合并 hotdogb USB-C、UFS 和触摸屏 DTS 修正
-            sed -i '/#include <dt-bindings\/gpio\/gpio.h>/a#include <dt-bindings/usb/pd.h>' sm8150-oneplus-hotdogb.dts
-            cat >> sm8150-oneplus-hotdogb.dts <<'DTS_EOF'
+          # 合并 hotdogb USB-C、UFS 和触摸屏 DTS 修正
+          sed -i '/#include <dt-bindings\/gpio\/gpio.h>/a#include <dt-bindings/interrupt-controller/irq.h>\n#include <dt-bindings/usb/pd.h>' sm8150-oneplus-hotdogb.dts
+          cat >> sm8150-oneplus-hotdogb.dts <<'DTS_EOF'
 
-            &ufs_mem_hc {
-              /delete-property/ reset-gpios;
-            };
+          &ufs_mem_hc {
+            /delete-property/ reset-gpios;
+          };
 
-            &pm8150b_vbus {
-              status = "okay";
-            };
+          &pm8150b_vbus {
+            status = "okay";
+          };
 
-            &pm8150b_typec {
-              vdd-pdphy-supply = <&vreg_l2a_3p1>;
-              status = "okay";
+          &pm8150b_typec {
+            vdd-pdphy-supply = <&vreg_l2a_3p1>;
+            status = "okay";
 
-              connector {
-                compatible = "usb-c-connector";
-                power-role = "dual";
-                data-role = "dual";
-                self-powered;
+            connector {
+              compatible = "usb-c-connector";
+              power-role = "dual";
+              data-role = "dual";
+              self-powered;
 
-                source-pdos = <PDO_FIXED(5000, 3000,
-                             PDO_FIXED_DUAL_ROLE |
-                             PDO_FIXED_USB_COMM |
-                             PDO_FIXED_DATA_SWAP)>;
-
-                sink-pdos = <PDO_FIXED(5000, 3000,
+              source-pdos = <PDO_FIXED(5000, 3000,
                            PDO_FIXED_DUAL_ROLE |
                            PDO_FIXED_USB_COMM |
                            PDO_FIXED_DATA_SWAP)>;
 
-                op-sink-microwatt = <10000000>;
+              sink-pdos = <PDO_FIXED(5000, 3000,
+                         PDO_FIXED_DUAL_ROLE |
+                         PDO_FIXED_USB_COMM |
+                         PDO_FIXED_DATA_SWAP)>;
 
-                ports {
-                  #address-cells = <1>;
-                  #size-cells = <0>;
+              op-sink-microwatt = <10000000>;
 
-                  port@0 {
-                    reg = <0>;
+              ports {
+                #address-cells = <1>;
+                #size-cells = <0>;
 
-                    pm8150b_role_switch_in: endpoint {
-                      remote-endpoint = <&usb_1_dwc3_hs>;
-                    };
+                port@0 {
+                  reg = <0>;
+
+                  pm8150b_role_switch_in: endpoint {
+                    remote-endpoint = <&usb_1_dwc3_hs>;
                   };
                 };
               };
             };
+          };
 
-            &usb_1 {
-              status = "okay";
-              vbus-supply = <&pm8150b_vbus>;
+          &usb_1 {
+            status = "okay";
+            vbus-supply = <&pm8150b_vbus>;
+          };
+
+          &i2c5 {
+            status = "okay";
+
+            touchscreen@20 {
+              compatible = "syna,rmi4-s3706b-i2c", "synaptics-s3706";
+              reg = <0x20>;
+
+              interrupt-parent = <&tlmm>;
+              interrupts = <122 IRQ_TYPE_LEVEL_LOW>;
+
+              reset-gpios = <&tlmm 54 GPIO_ACTIVE_LOW>;
+              vcc_1v8-supply = <&vreg_l7a_1p8>;
+
+              touchscreen-size-x = <1080>;
+              touchscreen-size-y = <2400>;
             };
-
-            &i2c5 {
-              status = "okay";
-
-              touchscreen@20 {
-                compatible = "syna,rmi4-s3706b-i2c", "synaptics-s3706";
-                reg = <0x20>;
-
-                interrupt-parent = <&tlmm>;
-                interrupts = <122 IRQ_TYPE_LEVEL_LOW>;
-
-                reset-gpios = <&tlmm 54 GPIO_ACTIVE_LOW>;
-                vcc_1v8-supply = <&vreg_l7a_1p8>;
-
-                touchscreen-size-x = <1080>;
-                touchscreen-size-y = <2400>;
-              };
-            };
-            DTS_EOF
+          };
+          DTS_EOF
 
       - name: Kernel config & build
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
           cd kernel
           axel -o arch/arm64/configs/hotdog_defconfig \
             https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config
@@ -134,14 +137,15 @@ jobs:
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- hotdog_defconfig
 
           JOBS=$(nproc --all)
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$JOBS Image dtbs modules
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j"$JOBS" Image dtbs modules
 
           export DEB_HOST_ARCH=arm64
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- deb-pkg -j$JOBS DPKG_FLAGS="-d"
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- deb-pkg -j"$JOBS" DPKG_FLAGS="-d"
 
       - name: Build Debian rootfs + ESP image
+        shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
           # ========== ESP / rootfs 参数 ==========
           ROOTFS_UUID="20336aa9-c9de-431a-b679-dcf10065c121"
@@ -164,8 +168,8 @@ jobs:
           sudo cp /usr/bin/qemu-aarch64-static chroot/usr/bin/
 
           sudo mount --bind /proc chroot/proc
-          sudo mount --bind /sys  chroot/sys
-          sudo mount --bind /dev  chroot/dev
+          sudo mount --bind /sys chroot/sys
+          sudo mount --bind /dev chroot/dev
           sudo mount --bind /dev/pts chroot/dev/pts
 
           sudo chroot chroot /bin/bash <<'CHROOT_EOF'
@@ -242,7 +246,7 @@ jobs:
           dd if=/dev/zero of="$ESP_IMAGE" bs=1M count="$ESP_SIZE_MB" status=progress
           mkfs.vfat -F 32 -n EFI -i "${ESP_UUID//-/}" "$ESP_IMAGE"
 
-          cat > /tmp/grub.cfg <<GRUB_EOF
+          cat > /tmp/grub.cfg <<'GRUB_EOF'
           search --no-floppy --file --set=root /Image
           set timeout=3
           set default=0
@@ -272,7 +276,9 @@ jobs:
           sudo umount -l chroot/proc chroot/sys chroot/dev/pts chroot/dev chroot 2>/dev/null || true
 
       - name: Collect output
+        shell: bash
         run: |
+          set -euo pipefail
           mkdir -p output
           cp kernel/arch/arm64/boot/Image output/
           cp kernel/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb output/ || true
@@ -282,7 +288,7 @@ jobs:
           ls -lh output/
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: oneplus7t-debian-full
           path: output/
