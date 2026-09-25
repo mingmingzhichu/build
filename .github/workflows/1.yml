@@ -15,7 +15,6 @@ jobs:
       - name: Install dependencies
         run: |
           set -e
-          sudo dpkg --add-architecture arm64
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
@@ -23,7 +22,26 @@ jobs:
             device-tree-compiler bc cpio rsync debhelper \
             axel debootstrap qemu-user-static binfmt-support \
             python3 wget android-sdk-libsparse-utils \
-            dosfstools grub-common grub-efi-arm64-bin:arm64 mtools
+            dosfstools grub-common mtools
+
+          # Ubuntu 的 ARM64 包在 ports 源；不要给宿主机全局启用 arm64，
+          # 否则 security.ubuntu.com 会返回 arm64 Packages 404。
+          cat > /tmp/ubuntu-arm64-ports.list <<'APT_EOF'
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main universe
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe
+          deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main universe
+          APT_EOF
+          sudo apt-get \
+            -o Dir::Etc::sourcelist=/tmp/ubuntu-arm64-ports.list \
+            -o Dir::Etc::sourceparts=- \
+            -o APT::Architecture=arm64 update
+          cd /tmp
+          apt-get \
+            -o Dir::Etc::sourcelist=/tmp/ubuntu-arm64-ports.list \
+            -o Dir::Etc::sourceparts=- \
+            -o APT::Architecture=arm64 download grub-efi-arm64-bin
+          sudo dpkg-deb -x grub-efi-arm64-bin_*.deb /tmp/grub-arm64
+          sudo cp -a /tmp/grub-arm64/usr/lib/grub/arm64-efi /usr/lib/grub/
 
           which img2simg grub-mkstandalone mkfs.vfat
 
