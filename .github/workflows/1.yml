@@ -15,6 +15,7 @@ jobs:
       - name: Install dependencies
         run: |
           set -e
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
           sudo apt-get install -y \
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
@@ -22,7 +23,7 @@ jobs:
             device-tree-compiler bc cpio rsync debhelper \
             axel debootstrap qemu-user-static binfmt-support \
             python3 wget android-sdk-libsparse-utils \
-            dosfstools grub-efi-arm64-bin mtools
+            dosfstools grub-common grub-efi-arm64-bin:arm64 mtools
 
           which img2simg grub-mkstandalone mkfs.vfat
 
