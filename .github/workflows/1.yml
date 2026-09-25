@@ -49,6 +49,89 @@ jobs:
 
           # 1) 修正 compatible 笔误 hotdobg -> hotdogb
           sed -i 's/oneplus,hotdobg/oneplus,hotdogb/g' sm8150-oneplus-hotdogb.dts
+          sed -i 's/reg = <0x0 0x80000000 0x0 0x0>/reg = <0x0 0x80000000 0x0 0x3bb00000>/' sm8150-oneplus-common.dtsi
+
+            # 合并 hotdogb USB-C、UFS 和触摸屏 DTS 修正
+            sed -i '/#include <dt-bindings\/gpio\/gpio.h>/a#include <dt-bindings/usb/pd.h>' sm8150-oneplus-hotdogb.dts
+            cat >> sm8150-oneplus-hotdogb.dts <<'DTS_EOF'
+
+              / {
+                reserved-memory {
+                  hotdog-fw-gap@89d00000 {
+                    reg = <0x0 0x89d00000 0x0 0x01a00000>;
+                    no-map;
+                  };
+                };
+              };
+
+            &ufs_mem_hc {
+              /delete-property/ reset-gpios;
+            };
+
+            &pm8150b_vbus {
+              status = "okay";
+            };
+
+            &pm8150b_typec {
+              vdd-pdphy-supply = <&vreg_l2a_3p1>;
+              status = "okay";
+
+              connector {
+                compatible = "usb-c-connector";
+                power-role = "dual";
+                data-role = "dual";
+                self-powered;
+
+                source-pdos = <PDO_FIXED(5000, 3000,
+                             PDO_FIXED_DUAL_ROLE |
+                             PDO_FIXED_USB_COMM |
+                             PDO_FIXED_DATA_SWAP)>;
+
+                sink-pdos = <PDO_FIXED(5000, 3000,
+                           PDO_FIXED_DUAL_ROLE |
+                           PDO_FIXED_USB_COMM |
+                           PDO_FIXED_DATA_SWAP)>;
+
+                op-sink-microwatt = <10000000>;
+
+                ports {
+                  #address-cells = <1>;
+                  #size-cells = <0>;
+
+                  port@0 {
+                    reg = <0>;
+
+                    pm8150b_role_switch_in: endpoint {
+                      remote-endpoint = <&usb_1_dwc3_hs>;
+                    };
+                  };
+                };
+              };
+            };
+
+            &usb_1 {
+              status = "okay";
+              vbus-supply = <&pm8150b_vbus>;
+            };
+
+            &i2c5 {
+              status = "okay";
+
+              touchscreen@20 {
+                compatible = "syna,rmi4-s3706b-i2c", "synaptics-s3706";
+                reg = <0x20>;
+
+                interrupt-parent = <&tlmm>;
+                interrupts = <122 IRQ_TYPE_LEVEL_LOW>;
+
+                reset-gpios = <&tlmm 54 GPIO_ACTIVE_LOW>;
+                vcc_1v8-supply = <&vreg_l7a_1p8>;
+
+                touchscreen-size-x = <1080>;
+                touchscreen-size-y = <2400>;
+              };
+            };
+            DTS_EOF
 
       - name: Kernel config & build
         run: |
