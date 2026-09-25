@@ -1,4 +1,4 @@
-name: Build SM8150 Mainline + Debian for OnePlus7T (hotdogb)
+name: Build SM8150 Mainline + Debian ESP for OnePlus7T (hotdogb)
 
 on:
   workflow_dispatch:
@@ -21,23 +21,10 @@ jobs:
             flex bison libssl-dev libelf-dev libncurses-dev \
             device-tree-compiler bc cpio rsync debhelper \
             axel debootstrap qemu-user-static binfmt-support \
-            python3 wget android-sdk-libsparse-utils
+            python3 wget android-sdk-libsparse-utils \
+            dosfstools grub-efi-arm64-bin mtools
 
-          # AIK mkbootimg / unpackbootimg
-          wget -O /tmp/AIK-Linux-v3.8-ALL.tar.gz \
-            https://raw.githubusercontent.com/mingmingzhichu/build/main/aik.gz
-          mkdir -p /tmp/aik38
-          tar -xf /tmp/AIK-Linux-v3.8-ALL.tar.gz -C /tmp/aik38 --strip-components=1 AIK-Linux/bin
-          sudo cp /tmp/aik38/bin/linux/x86_64/{mkbootimg,unpackbootimg} /usr/local/bin/
-          sudo chmod +x /usr/local/bin/{mkbootimg,unpackbootimg}
-          
-          # avbtool.py（PyPI 没有 avbtool 包）
-          wget -q -O /usr/local/bin/avbtool \
-            https://cdn.jsdelivr.net/gh/LineageOS/android_external_avb@lineage-21.0/avbtool.py
-          sudo chmod +x /usr/local/bin/avbtool
-
-          which mkbootimg img2simg
-          python3 /usr/local/bin/avbtool version || true
+          which img2simg grub-mkstandalone mkfs.vfat
 
       - name: Clone kernel & apply hotdogb DTS (Caleb + small fix)
         run: |
@@ -62,8 +49,9 @@ jobs:
           cd kernel
           axel -o arch/arm64/configs/hotdog_defconfig \
             https://raw.githubusercontent.com/mingmingzhichu/build/main/1.config
-          sed -i '/^CONFIG_EFI/d;/^# CONFIG_EFI is not set$/d' arch/arm64/configs/hotdog_defconfig
-          echo '# CONFIG_EFI is not set' >> arch/arm64/configs/hotdog_defconfig
+          sed -i '/^CONFIG_EFI=/d;/^# CONFIG_EFI is not set$/d;/^CONFIG_EFI_STUB=/d' arch/arm64/configs/hotdog_defconfig
+          echo 'CONFIG_EFI=y' >> arch/arm64/configs/hotdog_defconfig
+          echo 'CONFIG_EFI_STUB=y' >> arch/arm64/configs/hotdog_defconfig
           sed -i 's/CONFIG_RAID6_PQ_BENCHMARK=y/# CONFIG_RAID6_PQ_BENCHMARK is not set/' arch/arm64/configs/hotdog_defconfig
           sed -i 's/CONFIG_QCOM_WDT=m/CONFIG_QCOM_WDT=y/' arch/arm64/configs/hotdog_defconfig
           echo '# RAID6_PQ_BENCHMARK is not set' >> arch/arm64/configs/hotdog_defconfig
@@ -74,24 +62,20 @@ jobs:
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- hotdog_defconfig
 
           JOBS=$(nproc --all)
-          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$JOBS Image.gz dtbs modules
+          make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$JOBS Image dtbs modules
 
           export DEB_HOST_ARCH=arm64
           make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- deb-pkg -j$JOBS DPKG_FLAGS="-d"
 
-      - name: Build Debian rootfs + both boot images
+      - name: Build Debian rootfs + ESP image
         run: |
           set -e
 
-          # ========== 对齐 OnePlus 7T/Pro ABL 的 boot 参数 ==========
+          # ========== ESP / rootfs 参数 ==========
           ROOTFS_UUID="20336aa9-c9de-431a-b679-dcf10065c121"
-          BASE_ADDR="0x00000000"
-          KERNEL_OFFSET="0x00008000"
-          RAMDISK_OFFSET="0x01000000"
-          TAGS_OFFSET="0x00000100"
-          DTB_OFFSET="0x01f00000"
-          PAGE_SIZE="4096"
-          BOOT_PARTITION_SIZE=100663296   # 96 MiB
+          ESP_SIZE_MB=256
+          ESP_IMAGE="esp.img"
+          ESP_UUID="7A3B-7C11"
 
           CMDLINE="root=UUID=$ROOTFS_UUID rw rootwait clk_ignore_unused pd_ignore_unused console=ttyMSM0,115200n8 console=tty0 earlycon keep_bootcon no_console_suspend loglevel=8 ignore_loglevel"
 
@@ -167,7 +151,7 @@ jobs:
           KERNEL_VER=$(sudo chroot chroot ls /lib/modules/ | head -1)
           echo "Kernel version: $KERNEL_VER"
 
-          sudo cp chroot/boot/vmlinuz-$KERNEL_VER /tmp/kernel.gz
+          cp kernel/arch/arm64/boot/Image /tmp/Image
 
           DTB_PATH="kernel/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb"
           if [ ! -f "$DTB_PATH" ]; then
@@ -181,66 +165,35 @@ jobs:
           sudo chroot chroot update-initramfs -c -k "$KERNEL_VER"
           sudo cp chroot/boot/initrd.img-$KERNEL_VER /tmp/initrd.img
 
-          # ========== 方式1：拼接 DTB（append，保留） ==========
-          cat /tmp/kernel.gz /tmp/dtb > /tmp/kernel_blob
-          mkbootimg \
-            --kernel /tmp/kernel_blob \
-            --ramdisk /tmp/initrd.img \
-            --base "$BASE_ADDR" \
-            --kernel_offset "$KERNEL_OFFSET" \
-            --ramdisk_offset "$RAMDISK_OFFSET" \
-            --tags_offset "$TAGS_OFFSET" \
-            --pagesize "$PAGE_SIZE" \
-            --cmdline "$CMDLINE" \
-            -o boot-append-raw.img
+          # ========== 生成可由 ARM64 UEFI/GRUB 启动的 ESP ==========
+          rm -f "$ESP_IMAGE" /tmp/BOOTAA64.EFI /tmp/grub.cfg
+          dd if=/dev/zero of="$ESP_IMAGE" bs=1M count="$ESP_SIZE_MB" status=progress
+          mkfs.vfat -F 32 -n EFI -i "${ESP_UUID//-/}" "$ESP_IMAGE"
 
-          # ========== 方式2：header v2 + 独立 --dtb（推荐先试这个） ==========
-          mkbootimg \
-            --header_version 2 \
-            --kernel /tmp/kernel.gz \
-            --ramdisk /tmp/initrd.img \
-            --dtb /tmp/dtb \
-            --base "$BASE_ADDR" \
-            --kernel_offset "$KERNEL_OFFSET" \
-            --ramdisk_offset "$RAMDISK_OFFSET" \
-            --tags_offset "$TAGS_OFFSET" \
-            --dtb_offset "$DTB_OFFSET" \
-            --pagesize "$PAGE_SIZE" \
-            --cmdline "$CMDLINE" \
-            -o boot-dtb-raw.img
-
-          echo "Raw sizes:"
-          ls -lh boot-append-raw.img boot-dtb-raw.img
-
-          # ========== 两种都做 AVB hash footer，pad 到 96MiB ==========
-          pad_boot() {
-            local src="$1" dst="$2"
-            cp "$src" "$dst"
-            local raw_sha
-            raw_sha=$(sha256sum "$dst" | cut -d' ' -f1)
-            python3 /usr/local/bin/avbtool add_hash_footer \
-              --image "$dst" \
-              --partition_name boot \
-              --partition_size "$BOOT_PARTITION_SIZE" \
-              --algorithm NONE \
-              --salt "$raw_sha"
-            local sz
-            sz=$(stat -c %s "$dst")
-            if [ "$sz" -ne "$BOOT_PARTITION_SIZE" ]; then
-              echo "ERROR: $dst size $sz != $BOOT_PARTITION_SIZE"
-              exit 1
-            fi
-            echo "OK: $dst -> $sz bytes (AVB padded)"
+          cat > /tmp/grub.cfg <<GRUB_EOF
+          search --no-floppy --file --set=root /Image
+          set timeout=3
+          set default=0
+          menuentry 'Debian trixie (OnePlus 7T)' {
+              linux /Image $CMDLINE
+              initrd /initrd.img
+              devicetree /dtb
           }
+          GRUB_EOF
 
-          pad_boot boot-append-raw.img boot-append.img
-          pad_boot boot-dtb-raw.img     boot-dtb.img
-
-          # ========== 禁用验证的 vbmeta ==========
-          python3 /usr/local/bin/avbtool make_vbmeta_image \
-            --flags 2 \
-            --padding_size 4096 \
-            --output vbmeta-disabled.img
+          grub-mkstandalone -O arm64-efi -o /tmp/BOOTAA64.EFI \
+            "boot/grub/grub.cfg=/tmp/grub.cfg"
+          sudo mkdir -p /mnt/esp
+          sudo mount -o loop "$ESP_IMAGE" /mnt/esp
+          sudo mkdir -p /mnt/esp/EFI/BOOT
+          sudo cp /tmp/BOOTAA64.EFI /mnt/esp/EFI/BOOT/BOOTAA64.EFI
+          sudo cp /tmp/Image /mnt/esp/Image
+          sudo cp /tmp/initrd.img /mnt/esp/initrd.img
+          sudo cp /tmp/dtb /mnt/esp/dtb
+          sync
+          sudo umount /mnt/esp
+          echo "ESP contents:"
+          mdir -i "$ESP_IMAGE" ::/EFI/BOOT
 
           img2simg rootfs.img rootfs.img.sparse
 
@@ -249,12 +202,10 @@ jobs:
       - name: Collect output
         run: |
           mkdir -p output
-          cp kernel/arch/arm64/boot/Image.gz output/ || true
+          cp kernel/arch/arm64/boot/Image output/
           cp kernel/arch/arm64/boot/dts/qcom/sm8150-oneplus-hotdogb.dtb output/ || true
           cp linux-*.deb output/ 2>/dev/null || true
-          cp boot-append.img output/
-          cp boot-dtb.img output/
-          cp vbmeta-disabled.img output/
+          cp esp.img output/
           cp rootfs.img.sparse output/
           ls -lh output/
 
