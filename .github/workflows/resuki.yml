@@ -46,10 +46,7 @@ jobs:
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/1.patch
           patch -p1 < 1.patch
           curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh" | bash
-          curl -LSs "https://raw.githubusercontent.com/Hybrid-Mount/meta-hybrid_mount/dev/module/vfs/setup.sh" | bash
-          echo "CONFIG_HYBRIDMOUNT=y" >> ~/kernel/arch/arm64/configs/gulch_defconfig
-          sed -i '878s/.*/    ret = hm_d_revalidate_common(d_inode(parent), \&name, dentry, flags, weak);/' fs/hybridmount/hybridmount.c
-          sed -i '1i ccflags-y += -Wno-vla' fs/hybridmount/Makefile
+          
           make O=../out ARCH=arm64 gulch_defconfig
           # 使用 Clang 编译内核
           make -j$(nproc --all) O=../out ARCH=arm64 \
