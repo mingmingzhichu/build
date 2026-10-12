@@ -1,1 +1,15 @@
-see_file
+NOTE: This file was corrupted during an automated update.
+
+Please restore the original 1.patch from:
+  https://github.com/mingmingzhichu/build/blob/004e62124f31b78efbc3385c0add926c4bb10805/1.patch
+
+For the exec hook, DO NOT use the exec hunk in original 1.patch.
+Use exec-fix.patch instead (already in this repo):
+  https://github.com/mingmingzhichu/build/blob/main/exec-fix.patch
+
+Correct apply order on a clean kernel tree:
+  1. Edit original 1.patch and REMOVE the fs/exec.c hunk entirely
+  2. git apply 1.patch
+  3. git apply exec-fix.patch
+
+Or manually patch fs/exec.c using exec-fix.patch content only.
