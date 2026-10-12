@@ -1,0 +1,200 @@
+diff --git a/arch/arm64/configs/gulch_defconfig b/arch/arm64/configs/gulch_defconfig
+index 2943fa501f29..522ba2af9257 100644
+--- a/arch/arm64/configs/gulch_defconfig
++++ b/arch/arm64/configs/gulch_defconfig
+@@ -1492,8 +1492,9 @@ CONFIG_BLK_DEV=y
+ # CONFIG_BLK_DEV_PCIESSD_MTIP32XX is not set
+ CONFIG_ZRAM=y
+ # CONFIG_ZRAM_DEF_COMP_ZSTD is not set
+-CONFIG_ZRAM_DEF_COMP_LZ4=y
+-CONFIG_ZRAM_DEF_COMP="lz4"
++# CONFIG_ZRAM_DEF_COMP_LZ4 is not set
++CONFIG_ZRAM_DEF_COMP_LZ4K_OPLUS=y
++CONFIG_ZRAM_DEF_COMP="lz4k_oplus"
+ # CONFIG_ZRAM_WRITEBACK is not set
+ # CONFIG_BLK_DEV_DAC960 is not set
+ # CONFIG_BLK_DEV_UMEM is not set
+@@ -5428,6 +5429,7 @@ CONFIG_CRYPTO_DEFLATE=y
+ # CONFIG_CRYPTO_842 is not set
+ CONFIG_CRYPTO_LZ4=y
+ # CONFIG_CRYPTO_LZ4HC is not set
++CONFIG_CRYPTO_LZ4K_OPLUS=y
+ CONFIG_CRYPTO_ZSTD=y
+ 
+ #
+diff --git a/crypto/Kconfig b/crypto/Kconfig
+index fd90c1d2efd8..28c81ac20573 100644
+--- a/crypto/Kconfig
++++ b/crypto/Kconfig
+@@ -1691,6 +1691,13 @@ config CRYPTO_LZ4HC
+ 	help
+ 	  This is the LZ4 high compression mode algorithm.
+ 
++config CRYPTO_LZ4K_OPLUS
++	tristate "Lz4k_oplus compression algorithm"
++	select CRYPTO_ALGAPI
++	select CRYPTO_ACOMP2
++	help
++	  This is the lz4k_oplus algorithm.
++
+ config CRYPTO_ZSTD
+ 	tristate "Zstd compression algorithm"
+ 	select CRYPTO_ALGAPI
+diff --git a/drivers/block/zram/Kconfig b/drivers/block/zram/Kconfig
+index 8d5ad56bf657..f4e87de8a63b 100644
+--- a/drivers/block/zram/Kconfig
++++ b/drivers/block/zram/Kconfig
+@@ -2,7 +2,7 @@
+ config ZRAM
+ 	tristate "Compressed RAM block device support"
+ 	depends on BLOCK && SYSFS && ZSMALLOC && CRYPTO
+-	depends on CRYPTO_LZO || CRYPTO_ZSTD || CRYPTO_LZ4 || CRYPTO_LZ4HC || CRYPTO_842
++	depends on CRYPTO_LZO || CRYPTO_ZSTD || CRYPTO_LZ4 || CRYPTO_LZ4HC || CRYPTO_842 || CRYPTO_LZ4K_OPLUS
+ 	help
+ 	  Creates virtual block devices called /dev/zramX (X = 0, 1, ...).
+ 	  Pages written to these disks are compressed and stored in memory
+@@ -43,6 +43,10 @@ config ZRAM_DEF_COMP_842
+ 	bool "842"
+ 	depends on CRYPTO_842
+ 
++config ZRAM_DEF_COMP_LZ4K_OPLUS
++	bool "lz4k_oplus"
++	depends on CRYPTO_LZ4K_OPLUS
++
+ endchoice
+ 
+ config ZRAM_DEF_COMP
+@@ -53,6 +57,7 @@ config ZRAM_DEF_COMP
+ 	default "lzo" if ZRAM_DEF_COMP_LZO
+ 	default "lz4hc" if ZRAM_DEF_COMP_LZ4HC
+ 	default "842" if ZRAM_DEF_COMP_842
++	default "lz4k_oplus" if ZRAM_DEF_COMP_LZ4K_OPLUS
+ 
+ config ZRAM_ENTROPY
+ 	bool "Use entropy optimization for zram"
+diff --git a/drivers/block/zram/zcomp.c b/drivers/block/zram/zcomp.c
+index 052aa3f65514..af94660eac54 100644
+--- a/drivers/block/zram/zcomp.c
++++ b/drivers/block/zram/zcomp.c
+@@ -25,6 +25,9 @@ static const char * const backends[] = {
+ #if IS_ENABLED(CONFIG_CRYPTO_LZ4HC)
+ 	"lz4hc",
+ #endif
++#if IS_ENABLED(CONFIG_CRYPTO_LZ4K_OPLUS)
++	"lz4k_oplus",
++#endif
+ #if IS_ENABLED(CONFIG_CRYPTO_842)
+ 	"842",
+ #endif
+diff --git a/drivers/input/input.c b/drivers/input/input.c
+index ceee66f34ed3..2fb03936dc6b 100644
+--- a/drivers/input/input.c
++++ b/drivers/input/input.c
+@@ -443,11 +443,20 @@ static void input_handle_event(struct input_dev *dev,
+  * to 'seed' initial state of a switch or initial position of absolute
+  * axis, etc.
+  */
++#ifdef CONFIG_KSU_MANUAL_HOOK
++extern bool ksu_input_hook __read_mostly;
++extern __attribute__((cold)) int ksu_handle_input_handle_event(
++			unsigned int *type, unsigned int *code, int *value);
++#endif
++
+ void input_event(struct input_dev *dev,
+ 		 unsigned int type, unsigned int code, int value)
+ {
+ 	unsigned long flags;
+-
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	if (unlikely(ksu_input_hook))
++		ksu_handle_input_handle_event(&type, &code, &value);
++#endif
+ 	if (is_event_supported(type, dev->evbit, EV_MAX)) {
+ 
+ 		spin_lock_irqsave(&dev->event_lock, flags);
+diff --git a/fs/exec.c b/fs/exec.c
+index 3cc864bd8310..ksu_exec_fix 100644
+--- a/fs/exec.c
++++ b/fs/exec.c
+@@ -1717,6 +1717,16 @@ static int exec_binprm(struct linux_binprm *bprm)
+ /*
+  * sys_execve() executes a new program.
+  */
++#ifdef CONFIG_KSU_MANUAL_HOOK
++__attribute__((hot))
++extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr,
++				void *argv, void *envp, int *flags);
++__attribute__((hot))
++extern int ksu_handle_post_execveat(int *fd, struct filename **filename_ptr,
++				void *argv, void *envp, int *flags,
++				int *retval);
++#endif
++
+ static int do_execveat_common(int fd, struct filename *filename,
+ 			      struct user_arg_ptr argv,
+ 			      struct user_arg_ptr envp,
+ 			      int flags)
+ {
+ 	char *pathbuf = NULL;
+ 	struct linux_binprm bprm;
+ 	struct file *file;
+ 	struct files_struct *displaced;
+ 	int retval;
++
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
++#endif
+ 
+ 	if (IS_ERR(filename))
+ 		return PTR_ERR(filename);
+@@ -1840,6 +1850,9 @@ static int do_execveat_common(int fd, struct filename *filename,
+ 	putname(filename);
+ 	if (displaced)
+ 		put_files_struct(displaced);
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	ksu_handle_post_execveat(&fd, &filename, &argv, &envp, &flags, &retval);
++#endif
+ 	return retval;
+ 
+ out:
+@@ -1862,6 +1875,9 @@ static int do_execveat_common(int fd, struct filename *filename,
+ 		reset_files_struct(displaced);
+ out_ret:
+ 	putname(filename);
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	ksu_handle_post_execveat(&fd, &filename, &argv, &envp, &flags, &retval);
++#endif
+ 	return retval;
+ }
+ 
+diff --git a/fs/namespace.c b/fs/namespace.c
+index 9d4cebeff2e6..a458c7a9c162 100644
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -1738,7 +1738,39 @@ static inline bool may_mandlock(void)
+ 	return false;
+ }
+ #endif
++static int can_umount(const struct path *path, int flags)
++{
++	struct mount *mnt = real_mount(path->mnt);
++
++	if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
++		return -EINVAL;
++	if (!may_mount())
++		return -EPERM;
++	if (path->dentry != path->mnt->mnt_root)
++		return -EINVAL;
++	if (!check_mnt(mnt))
++		return -EINVAL;
++	if (mnt->mnt.mnt_flags & MNT_LOCKED) /* Check optimistically */
++		return -EINVAL;
++	if (flags & MNT_FORCE && !capable(CAP_SYS_ADMIN))
++		return -EPERM;
++	return 0;
++}
+ 
++int path_umount(struct path *path, int flags)
++{
++	struct mount *mnt = real_mount(path->mnt);
++	int ret;
