@@ -112,8 +112,10 @@ index ceee66f34ed3..2fb03936dc6b 100644
  	if (is_event_supported(type, dev->evbit, EV_MAX)) {
  
  		spin_lock_irqsave(&dev->event_lock, flags);
---- fs/exec.c
-+++ fs/exec.c
+diff --git a/fs/exec.c b/fs/exec.c
+index 3cc864bd8310..ksu_exec_fix 100644
+--- a/fs/exec.c
++++ b/fs/exec.c
 @@ -1717,14 +1717,13 @@
  /*
   * sys_execve() executes a new program.
