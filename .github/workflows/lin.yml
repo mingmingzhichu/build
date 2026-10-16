@@ -143,9 +143,7 @@ jobs:
       - name: Upload Release
         run: |
           REL_NAME="OnePlus7T-SM8150-Lineage-lineage-24.0-BakaSU-$(date +%Y%m%d)"
-gh release create "$REL_NAME"  --title "$REL_NAME"   --notes "$(cat options.txt)"   *.zip Image build.log options.txt .config
-          ZIP_FILE=$(ls *.zip)
           gh release create "$REL_NAME" \
-            --title "$REL_NAME" \
-            --notes "$(cat options.txt)" \
-            "${ZIP_FILE}" Image build.log options.txt .config
+  --title "$REL_NAME" \
+  --notes "$(cat options.txt)" \
+  *.zip Image build.log options.txt .config
