@@ -41,7 +41,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y \
-            bc bison flex \
+            bc bison flex axel \
             libssl-dev libelf-dev libdw-dev \
             build-essential lz4 git python3 curl \
             dwarves cpio gcc-aarch64-linux-gnu
