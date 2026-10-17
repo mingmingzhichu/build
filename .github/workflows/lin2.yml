@@ -92,7 +92,7 @@ jobs:
           export SUBARCH=arm64
           export CROSS_COMPILE=aarch64-linux-gnu-
           export CLANG_TRIPLE=aarch64-linux-gnu-
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./arch/arm64/configs/vendor/sm8150-perf_defconfig
+          echo "CONFIG_KSU_MANUAL_HOOK=n" >> ./arch/arm64/configs/vendor/sm8150-perf_defconfig
           echo "CONFIG_KSU_SUSFS=y" >> ./arch/arm64/configs/vendor/sm8150-perf_defconfig
           echo "CONFIG_KSU=y" >> ./arch/arm64/configs/vendor/sm8150-perf_defconfig
           
