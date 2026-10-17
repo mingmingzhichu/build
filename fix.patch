@@ -1,0 +1,23 @@
+diff --git a/kernel/runtime/ksud_integration.c b/kernel/runtime/ksud_integration.c
+index 393347354..508d21c12 100644
+--- a/kernel/runtime/ksud_integration.c
++++ b/kernel/runtime/ksud_integration.c
+@@ -628,7 +628,7 @@ static __always_inline void ksu_common_newfstat_ret(unsigned long fd_long, void
+         return;
+
+     void __user *st_size_ptr;
+-    long size, new_size;
++    loff_t size, new_size;
+     size_t extra = ksu_rc_len + module_rc_len;
+     size_t len;
+
+@@ -648,7 +648,8 @@ static __always_inline void ksu_common_newfstat_ret(unsigned long fd_long, void
+     }
+
+     new_size = size + extra;
+-    pr_info("%s: adding rc len: %ld -> %ld (static=%zu module=%zu)\n", __func__, size, new_size, ksu_rc_len,
++    pr_info("%s: adding rc len: %lld -> %lld (static=%zu module=%zu)\n", __func__, (long long)size,
++            (long long)new_size, ksu_rc_len,
+             module_rc_len);
+
+     if (!copy_to_user(st_size_ptr, &new_size, len))
