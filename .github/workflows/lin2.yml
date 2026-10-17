@@ -96,9 +96,9 @@ jobs:
           echo "CONFIG_KSU_SUSFS=y" >> ./arch/arm64/configs/vendor/sm8150-perf_defconfig
           echo "CONFIG_KSU=y" >> ./arch/arm64/configs/vendor/sm8150-perf_defconfig
           
-          axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/lin.patch
+          #axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/lin.patch
           
-          patch -p1 < lin.patch
+          #patch -p1 < lin.patch
 
 
           # LineageOS 官方配置
