@@ -144,7 +144,7 @@ jobs:
 
       - name: Upload Release
         run: |
-          REL_NAME="OnePlus7T-SM8150-Lineage-lineage-24.0-BakaSU-$(date +%Y%m%d)"
+          REL_NAME="OnePlus7T-SM8150-Lineage-lineage-24.0-BakaSU-$(date +%Y%m%d)-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           gh release create "$REL_NAME" \
             --title "$REL_NAME" \
             --notes "$(cat options.txt)" \
