@@ -1,7 +1,7 @@
 diff --git a/kernel/runtime/ksud_integration.c b/kernel/runtime/ksud_integration.c
 index 393347354..508d21c12 100644
---- a/kernel/runtime/ksud_integration.c
-+++ b/kernel/runtime/ksud_integration.c
+--- a/KernelSUkernel/runtime/ksud_integration.c
++++ b/KernelSU/kernel/runtime/ksud_integration.c
 @@ -628,7 +628,7 @@ static __always_inline void ksu_common_newfstat_ret(unsigned long fd_long, void
          return;
 
