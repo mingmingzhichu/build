@@ -1,3 +1,20 @@
+diff --git a/drivers/input/input.c b/drivers/input/input.c
+--- a/drivers/input/input.c
++++ b/drivers/input/input.c
+@@ -439,1 +439,5 @@
++#ifdef CONFIG_KSU_MANUAL_HOOK
++extern __attribute__((cold)) int ksu_handle_input_handle_event(
++			unsigned int *type, unsigned int *code, int *value);
++#endif
+ void input_event(struct input_dev *dev,
+@@ -442,3 +446,7 @@ void input_event(struct input_dev *dev,
+ 	unsigned long flags;
+ 
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	ksu_handle_input_handle_event(&type, &code, &value);
++#endif
++
+ 	if (is_event_supported(type, dev->evbit, EV_MAX)) {
 diff --git a/fs/Makefile b/fs/Makefile
 index 3bbe62a1e19b..c9d9eef6b184 100644
 --- a/fs/Makefile
@@ -4393,6 +4410,19 @@ diff --git a/kernel/sys.c b/kernel/sys.c
 index f9c2a076caed..7397a08b9490 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
+@@ -598,1 +598,4 @@
++#ifdef CONFIG_KSU_MANUAL_HOOK
++extern int ksu_handle_setresuid(uid_t ruid, uid_t euid, uid_t suid);
++#endif
+ SYSCALL_DEFINE3(setresuid, uid_t, ruid, uid_t, euid, uid_t, suid)
+@@ -603,4 +606,7 @@ SYSCALL_DEFINE3(setresuid, uid_t, ruid, uid_t, euid, uid_t, suid)
+ 	int retval;
+ 	kuid_t kruid, keuid, ksuid;
+ 
++#ifdef CONFIG_KSU_MANUAL_HOOK
++	(void)ksu_handle_setresuid(ruid, euid, suid);
++#endif
+ 	kruid = make_kuid(ns, ruid);
 @@ -1182,12 +1182,20 @@ static int override_release(char __user *release, size_t len)
  	return ret;
  }
