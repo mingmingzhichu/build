@@ -65,9 +65,17 @@ diff --git a/fs/stat.c b/fs/stat.c
 index 0fda4b6b8fb2..ba9e6f0b77c4 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
-@@ -253,7 +253,17 @@
+@@ -272,6 +272,7 @@
+ 	struct kstat stat;
+ 	int error = vfs_fstat(fd, &stat);
  
- 	return cp_old_stat(&stat, statbuf);
++
+ 	if (!error)
+ 		error = cp_old_stat(&stat, statbuf);
+ 
+@@ -352,7 +353,16 @@
+ 
+ 	return cp_new_stat(&stat, statbuf);
  }
 +#ifdef CONFIG_KSU_MANUAL_HOOK
 +__attribute__((hot))
@@ -79,19 +87,10 @@ index 0fda4b6b8fb2..ba9e6f0b77c4 100644
 +extern void ksu_handle_fstat64_ret(unsigned long *fd, struct stat64 __user **statbuf_ptr); // optional
 +#endif
 +#endif
-+
- SYSCALL_DEFINE2(lstat, const char __user *, filename,
- 		struct __old_kernel_stat __user *, statbuf)
- {
-@@ -272,6 +282,7 @@
- 	struct kstat stat;
- 	int error = vfs_fstat(fd, &stat);
- 
-+
- 	if (!error)
- 		error = cp_old_stat(&stat, statbuf);
- 
-@@ -359,7 +370,9 @@
+ #if !defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_SYS_NEWFSTATAT)
+ SYSCALL_DEFINE4(newfstatat, int, dfd, const char __user *, filename,
+ 		struct stat __user *, statbuf, int, flag)
+@@ -359,7 +369,9 @@
  {
  	struct kstat stat;
  	int error;
@@ -102,7 +101,7 @@ index 0fda4b6b8fb2..ba9e6f0b77c4 100644
  	error = vfs_fstatat(dfd, filename, &stat, flag);
  	if (error)
  		return error;
-@@ -374,7 +387,9 @@
+@@ -374,7 +386,9 @@
  
  	if (!error)
  		error = cp_new_stat(&stat, statbuf);
@@ -113,7 +112,7 @@ index 0fda4b6b8fb2..ba9e6f0b77c4 100644
  	return error;
  }
  
-@@ -494,7 +509,9 @@
+@@ -494,7 +508,9 @@
  
  	if (!error)
  		error = cp_new_stat64(&stat, statbuf);
@@ -124,7 +123,7 @@ index 0fda4b6b8fb2..ba9e6f0b77c4 100644
  	return error;
  }
  
-@@ -504,6 +521,10 @@
+@@ -504,6 +520,10 @@
  	struct kstat stat;
  	int error;
  
