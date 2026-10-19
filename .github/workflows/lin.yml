@@ -98,7 +98,7 @@ jobs:
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/lin.patch
           axel https://raw.githubusercontent.com/mingmingzhichu/build/refs/heads/main/fix.patch
           patch -p1 < lin.patch
-          patch -p1 < fix.patch
+          #patch -p1 < fix.patch
 
           # LineageOS 官方配置
           make O=out ARCH=arm64 \
