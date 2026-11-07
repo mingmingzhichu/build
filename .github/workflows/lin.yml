@@ -138,6 +138,9 @@ jobs:
           sed -i 's/do.modules=1/do.modules=0/' anykernel.sh
           sed -i 's/do.cleanup=1/do.cleanup=1/' anykernel.sh
           sed -i 's|^BLOCK=.*|BLOCK=/dev/block/bootdevice/by-name/boot;|' anykernel.sh
+          sed -i 's|^IS_SLOT_DEVICE=.*|IS_SLOT_DEVICE=auto;|' anykernel.sh
+          sed -i 's|^RAMDISK_COMPRESSION=.*|RAMDISK_COMPRESSION=auto;|' anykernel.sh
+          sed -i 's|^PATCH_VBMETA_FLAG=.*|PATCH_VBMETA_FLAG=auto;|' anykernel.sh
           cp ../Image .
           ZIP_NAME="OnePlus7T_SM8150_Lineage_${{ inputs.kernel_branch }}_BakaSU.zip"
           zip -r9 ../${ZIP_NAME} * -x "*.git*"
