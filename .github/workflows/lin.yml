@@ -65,11 +65,11 @@ jobs:
       - name: Download AOSP Clang
         run: |
           case "${{ inputs.clang_version }}" in
-            "clang-r536225")
-              curl -LO https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android15-qpr2-release/clang-r536225.tar.gz
+            "clang-r614150")
+              axel -o https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android15-qpr2-release/clang-r536225.tar.gz
               ;;
             "clang-r547379")
-              curl -LO https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android16-qpr2-release/clang-r547379.tar.gz
+              axel -o https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android16-qpr2-release/clang-r547379.tar.gz
               ;;
             "clang-r563880c")
               axel -o clang-r563880c.tar.gz https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android16-qpr2-release/clang-r563880c.tar.gz 
